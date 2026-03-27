@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+  <rect width="160" height="160" rx="36" fill="#E8ECE6"/>
+  <circle cx="80" cy="60" r="28" fill="#1F4F46" opacity="0.9"/>
+  <path d="M35 128c7-24 25-38 45-38s38 14 45 38" fill="#1F4F46" opacity="0.9"/>
+  <text x="80" y="148" text-anchor="middle" font-size="18" font-family="Arial, sans-serif" fill="#1F4F46">YH</text>
+</svg>

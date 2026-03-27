@@ -1,8 +1,23 @@
 ---
+import { getCollection } from 'astro:content';
 import BaseHead from '../components/BaseHead.astro';
 import Footer from '../components/Footer.astro';
+import FormattedDate from '../components/FormattedDate.astro';
 import Header from '../components/Header.astro';
+import { education, profile } from '../data/site';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+
+const latestNotes = (await getCollection('notes'))
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+	.slice(0, 2);
+
+const latestEssays = (await getCollection('essays'))
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+	.slice(0, 2);
+
+const latestPosts = [...latestNotes, ...latestEssays]
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+	.slice(0, 4);
 ---
 
 <!doctype html>
@@ -12,38 +27,341 @@ import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
 	</head>
 	<body>
 		<Header />
-		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
-			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This
-				template serves as a lightweight, minimally-styled starting point for anyone looking to build
-				a personal website, blog, or portfolio with Astro.
-			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to
-				<a href="https://docs.astro.build/">read the docs</a>
-				or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out
-				<a href="https://github.com/Charca/astro-blog-template">astro-blog-template</a>
-				by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-			</p>
+		<main class="home-page">
+			<section class="hero">
+				<img
+					class="avatar"
+					src="/avatar.jpg"
+					alt="YangHao avatar"
+					width="128"
+					height="128"
+					onerror="this.onerror=null;this.src='/avatar-badge.svg';"
+				/>
+				<h1>{profile.name}</h1>
+				<p class="hero-meta">
+					<span>{profile.location}</span>
+					<span>·</span>
+					<a href={profile.github} target="_blank" rel="noreferrer">GitHub</a>
+				</p>
+				<div class="about-block">
+					<p class="eyebrow">About</p>
+					<p class="hero-copy">{profile.intro}</p>
+				</div>
+			</section>
+
+			<section class="education-panel">
+				<div class="section-head">
+					<p class="eyebrow">Education</p>
+				</div>
+				<div class="education-list">
+					{education.map((item) => (
+						<a class="education-item" href={item.href}>
+							<img class="school-badge" src={item.badge} alt={`${item.school} badge`} width="52" height="52" />
+							<div class="education-copy">
+								<p class="meta">{item.period}</p>
+								<h2>{item.school}</h2>
+								<p>{item.detail}</p>
+							</div>
+						</a>
+					))}
+				</div>
+			</section>
+
+			<section class="entry-grid">
+				<a class="entry-card" href="/notes">
+					<p class="entry-label">01</p>
+					<h2>Notes</h2>
+					<p>Structured study notes arranged by topic and chapter, closer to a handbook than a feed.</p>
+				</a>
+				<a class="entry-card" href="/essays">
+					<p class="entry-label">02</p>
+					<h2>Essays</h2>
+					<p>Short writing on learning, process, daily life, and whatever deserves a quieter page.</p>
+				</a>
+				<a class="entry-card" href="/projects">
+					<p class="entry-label">03</p>
+					<h2>Projects</h2>
+					<p>Experiments, repositories, and ongoing work with links to code, demos, and notes.</p>
+				</a>
+				<a class="entry-card" href="/links">
+					<p class="entry-label">04</p>
+					<h2>Links</h2>
+					<p>My own social links, feed endpoints, and a small list of sites I want to point people to.</p>
+				</a>
+			</section>
+
+			<section class="recent-posts panel">
+				<div class="panel-heading">
+					<p class="eyebrow">Recent Posts</p>
+				</div>
+				<ul>
+					{latestPosts.map((post) => (
+						<li>
+							<a href={`/${post.collection}/${post.id}/`}>
+								<div>
+									<p class="meta">
+										{post.collection === 'notes' ? `${post.data.section} · ${post.data.chapter}` : 'Essay'}
+									</p>
+									<h3>{post.data.title}</h3>
+								</div>
+								<p class="meta"><FormattedDate date={post.data.pubDate} /></p>
+							</a>
+						</li>
+					))}
+				</ul>
+			</section>
+
 		</main>
 		<Footer />
 	</body>
 </html>
+
+<style>
+	.home-page {
+		width: min(1120px, calc(100% - 2rem));
+		margin: 0 auto;
+		padding: 3rem 0 4rem;
+	}
+
+	.hero {
+		max-width: 42rem;
+		margin: 0 auto 2.75rem;
+		text-align: center;
+	}
+
+	.eyebrow,
+	.entry-label,
+	.meta {
+		margin: 0;
+		font-size: 0.92rem;
+		color: rgb(var(--gray));
+	}
+
+	.eyebrow,
+	.entry-label {
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+	}
+
+	.avatar {
+		width: 128px;
+		height: 128px;
+		border-radius: 50%;
+		object-fit: cover;
+		object-position: center;
+		box-shadow: var(--box-shadow);
+		margin-bottom: 1rem;
+	}
+
+	.hero h1 {
+		font-size: 2.3rem;
+		margin-bottom: 0.45rem;
+	}
+
+	.hero-meta {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.55rem;
+		margin: 0 0 1.5rem;
+		font-size: 0.98rem;
+		color: rgb(var(--gray));
+	}
+
+	.hero-meta a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.about-block {
+		margin: 0 auto;
+		max-width: 38rem;
+	}
+
+	.hero-copy {
+		max-width: 38rem;
+		margin: 0.45rem auto 0;
+		font-size: 1rem;
+		color: rgb(var(--gray-dark));
+	}
+
+	.education-panel {
+		margin-bottom: 1.5rem;
+		padding: 1.6rem 1.5rem;
+		border-radius: 24px;
+		background: rgba(255, 255, 255, 0.92);
+		border: 1px solid rgba(var(--gray), 0.16);
+		display: grid;
+		grid-template-columns: 180px 1fr;
+		gap: 1.5rem;
+	}
+
+	.section-head {
+		margin-bottom: 0;
+	}
+
+	.education-list {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.85rem;
+	}
+
+	.education-item {
+		display: grid;
+		grid-template-columns: 56px 1fr;
+		align-items: start;
+		gap: 0.9rem;
+		padding: 0.75rem 0;
+		text-decoration: none;
+		color: inherit;
+		border-top: 1px solid rgba(var(--gray), 0.14);
+	}
+
+	.education-item:first-child {
+		padding-top: 0;
+		border-top: none;
+	}
+
+	.school-badge {
+		width: 52px;
+		height: 52px;
+		border-radius: 50%;
+		box-shadow: 0 4px 12px rgba(var(--black), 0.08);
+	}
+
+	.education-copy {
+		min-width: 0;
+	}
+
+	.education-item h2 {
+		font-size: 1.12rem;
+		margin: 0.12rem 0 0.2rem;
+		font-family: "FZFangSong-Z02", "STFangsong", "FangSong", "Songti SC", serif;
+		font-weight: 500;
+	}
+
+	.education-item > div p {
+		margin: 0;
+		font-family: "FZFangSong-Z02", "STFangsong", "FangSong", "Songti SC", serif;
+		font-size: 0.98rem;
+		color: rgb(var(--gray-dark));
+	}
+
+	.education-item .meta {
+		font-size: 0.9rem;
+	}
+
+	.entry-grid {
+		display: grid;
+		gap: 1.25rem;
+	}
+
+	.entry-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		margin-bottom: 1.25rem;
+	}
+
+	.entry-card,
+	.panel {
+		border-radius: 24px;
+		background: rgba(255, 255, 255, 0.92);
+		border: 1px solid rgba(var(--gray), 0.16);
+	}
+
+	.entry-card {
+		padding: 1.25rem;
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.entry-card h2 {
+		font-size: 1.15rem;
+		margin: 0.35rem 0 0.55rem;
+	}
+
+	.panel {
+		padding: 1.5rem;
+	}
+
+	.panel-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.panel ul {
+		list-style: none;
+		padding: 0;
+		margin: 1rem 0 0;
+	}
+
+	.panel li a {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.8rem 0;
+		text-decoration: none;
+		color: inherit;
+		border-top: 1px solid rgba(var(--gray), 0.14);
+	}
+
+	.panel li:first-child a {
+		padding-top: 0;
+		border-top: none;
+	}
+
+	.panel h3 {
+		font-size: 0.98rem;
+		font-weight: 600;
+		margin: 0.18rem 0 0;
+	}
+
+	.panel p:last-child {
+		margin-bottom: 0;
+	}
+
+	.recent-posts {
+		margin-bottom: 1.25rem;
+	}
+
+	.recent-posts ul {
+		margin-top: 0.6rem;
+	}
+
+	.recent-posts li a {
+		align-items: baseline;
+	}
+
+	.recent-posts .meta {
+		font-size: 0.84rem;
+	}
+
+	.recent-posts p {
+		margin: 0;
+	}
+
+	@media (max-width: 1100px) {
+		.entry-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 900px) {
+		.entry-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.education-panel {
+			grid-template-columns: 1fr;
+		}
+
+		.education-list {
+			grid-template-columns: 1fr;
+		}
+
+		.panel li a {
+			flex-direction: column;
+		}
+	}
+</style>
