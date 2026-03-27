@@ -1,0 +1,159 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import FormattedDate from '../components/FormattedDate.astro';
+import Header from '../components/Header.astro';
+
+interface Props {
+	title: string;
+	description: string;
+	pubDate: CollectionEntry<'notes'>['data']['pubDate'] | CollectionEntry<'essays'>['data']['pubDate'];
+	updatedDate?: CollectionEntry<'notes'>['data']['updatedDate'] | CollectionEntry<'essays'>['data']['updatedDate'];
+	variant: 'note' | 'essay';
+	section?: string;
+	chapter?: string;
+	tags?: string[];
+}
+
+const { title, description, pubDate, updatedDate, variant, section, chapter, tags = [] } = Astro.props;
+const isNote = variant === 'note';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={title} description={description} />
+	</head>
+	<body>
+		<Header />
+		<main class:list={['writing-shell', { note: isNote, essay: !isNote }]}>
+			<article class="writing-card">
+				<header class="writing-header">
+					{isNote ? (
+						<div class="eyebrow-group">
+							<p class="eyebrow">{section}</p>
+							{chapter && <p class="chapter">{chapter}</p>}
+						</div>
+					) : (
+						<p class="eyebrow">Essay</p>
+					)}
+					<h1>{title}</h1>
+					<p class="description">{description}</p>
+					<div class="meta">
+						<FormattedDate date={pubDate} />
+						{
+							updatedDate && (
+								<span class="updated">
+									Updated <FormattedDate date={updatedDate} />
+								</span>
+							)
+						}
+					</div>
+					{
+						isNote && tags.length > 0 && (
+							<ul class="tags" aria-label="tags">
+								{tags.map((tag) => <li>{tag}</li>)}
+							</ul>
+						)
+					}
+				</header>
+				<div class:list={['prose', { 'essay-prose': !isNote }]}>
+					<slot />
+				</div>
+			</article>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.writing-shell {
+		width: min(1100px, calc(100% - 2rem));
+		margin: 0 auto;
+		padding: 3rem 0 4rem;
+	}
+
+	.writing-shell.essay {
+		width: min(760px, calc(100% - 2rem));
+	}
+
+	.writing-card {
+		background: rgba(255, 255, 255, 0.92);
+		border: 1px solid rgba(var(--gray), 0.18);
+		border-radius: 24px;
+		padding: 2.25rem;
+	}
+
+	.writing-shell.essay .writing-card {
+		border: none;
+		background: transparent;
+		padding: 0;
+	}
+
+	.writing-header {
+		margin-bottom: 2rem;
+	}
+
+	.eyebrow-group,
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		align-items: center;
+	}
+
+	.eyebrow,
+	.chapter,
+	.updated {
+		margin: 0;
+		font-size: 0.92rem;
+		color: rgb(var(--gray));
+	}
+
+	.eyebrow {
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+	}
+
+	.description {
+		max-width: 46rem;
+		margin: 0 0 1rem;
+		color: rgb(var(--gray-dark));
+	}
+
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		list-style: none;
+		padding: 0;
+		margin: 1.25rem 0 0;
+	}
+
+	.tags li {
+		padding: 0.35rem 0.8rem;
+		border-radius: 999px;
+		background: rgba(var(--gray-light), 0.9);
+		font-size: 0.88rem;
+	}
+
+	.prose {
+		max-width: 72ch;
+	}
+
+	.essay-prose {
+		max-width: 64ch;
+	}
+
+	@media (max-width: 720px) {
+		.writing-card {
+			padding: 1.5rem;
+			border-radius: 18px;
+		}
+
+		.writing-shell.essay .writing-card {
+			padding: 0;
+		}
+	}
+</style>

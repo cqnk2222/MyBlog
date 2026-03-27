@@ -1,0 +1,87 @@
+---
+import { getCollection } from 'astro:content';
+import BaseHead from '../../components/BaseHead.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import FormattedDate from '../../components/FormattedDate.astro';
+
+const essays = (await getCollection('essays')).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title="Essays" description="Short essays about learning, life, and the process of building." />
+	</head>
+	<body>
+		<Header />
+		<main class="essays-page">
+			<section class="intro">
+				<p class="eyebrow">Essays</p>
+				<h1>Short writing, centered on the page.</h1>
+				<p>
+					These posts are quieter than notes. They focus on reflection, process, and small observations
+					from study and daily life.
+				</p>
+			</section>
+			<section class="essay-list">
+				{essays.map((essay) => (
+					<article>
+						<a href={`/essays/${essay.id}/`}>
+							<p class="date"><FormattedDate date={essay.data.pubDate} /></p>
+							<h2>{essay.data.title}</h2>
+							<p>{essay.data.description}</p>
+						</a>
+					</article>
+				))}
+			</section>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.essays-page {
+		width: min(760px, calc(100% - 2rem));
+		margin: 0 auto;
+		padding: 3rem 0 4rem;
+	}
+
+	.intro {
+		margin-bottom: 2.5rem;
+	}
+
+	.eyebrow,
+	.date {
+		margin: 0;
+		font-size: 0.92rem;
+		color: rgb(var(--gray));
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+	}
+
+	.essay-list {
+		display: grid;
+		gap: 1.5rem;
+	}
+
+	.essay-list article {
+		padding-top: 1.5rem;
+		border-top: 1px solid rgba(var(--gray), 0.18);
+	}
+
+	.essay-list a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	h2 {
+		margin: 0.45rem 0 0.65rem;
+	}
+
+	.essay-list p:last-child {
+		margin-bottom: 0;
+	}
+</style>

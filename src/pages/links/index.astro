@@ -1,0 +1,119 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import { friendLinks, myLinks } from '../../data/site';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title="Links" description="A small collection of personal links, feeds, and friends." />
+	</head>
+	<body>
+		<Header />
+		<main class="links-page">
+			<section class="intro">
+				<p class="eyebrow">Links</p>
+				<h1>A compact page for my own links and recommended sites.</h1>
+			</section>
+			<div class="link-groups">
+				<section class="group">
+					<h2>My Links</h2>
+					<ul>
+						{myLinks.map((item) => (
+							<li>
+								<a href={item.href} target={item.href.startsWith('http') ? '_blank' : undefined} rel="noreferrer">
+									<div>
+										<h3>{item.label}</h3>
+										<p>{item.description}</p>
+									</div>
+									<span>Open</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				</section>
+				<section class="group">
+					<h2>Friends</h2>
+					<ul>
+						{friendLinks.map((item) => (
+							<li>
+								<a href={item.href} target={item.href.startsWith('http') ? '_blank' : undefined} rel="noreferrer">
+									<div>
+										<h3>{item.label}</h3>
+										<p>{item.description}</p>
+									</div>
+									<span>Open</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				</section>
+			</div>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.links-page {
+		width: min(940px, calc(100% - 2rem));
+		margin: 0 auto;
+		padding: 3rem 0 4rem;
+	}
+
+	.eyebrow {
+		margin: 0;
+		font-size: 0.92rem;
+		color: rgb(var(--gray));
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+	}
+
+	.link-groups {
+		display: grid;
+		gap: 2rem;
+		margin-top: 2.5rem;
+	}
+
+	.group ul {
+		list-style: none;
+		padding: 0;
+		margin: 1rem 0 0;
+		display: grid;
+		gap: 1rem;
+	}
+
+	.group li a {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 1rem;
+		padding: 1.1rem 1.2rem;
+		border-radius: 20px;
+		background: rgba(255, 255, 255, 0.92);
+		border: 1px solid rgba(var(--gray), 0.16);
+		text-decoration: none;
+		color: inherit;
+	}
+
+	h3 {
+		margin-bottom: 0.25rem;
+	}
+
+	.group p {
+		margin: 0;
+	}
+
+	.group span {
+		color: rgb(var(--gray));
+	}
+
+	@media (max-width: 720px) {
+		.group li a {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+	}
+</style>
