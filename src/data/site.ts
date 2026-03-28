@@ -49,6 +49,7 @@ export const education = [
 		detail: '信息与计算科学',
 		period: 'August 2023 - Present',
 		badge: '/badges/pku.svg',
+		accent: '#8b1e2d',
 		href: '#',
 	},
 	{
@@ -56,6 +57,7 @@ export const education = [
 		detail: '高中',
 		period: 'August 2017 - July 2023',
 		badge: '/badges/nk.svg',
+		accent: '#174a8b',
 		href: '#',
 	},
 ];

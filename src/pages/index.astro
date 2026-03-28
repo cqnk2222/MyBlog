@@ -55,8 +55,15 @@ const latestPosts = [...latestNotes, ...latestEssays]
 				</div>
 				<div class="education-list">
 					{education.map((item) => (
-						<a class="education-item" href={item.href}>
-							<img class="school-badge" src={item.badge} alt={`${item.school} badge`} width="52" height="52" />
+						<a class="education-item" href={item.href} style={`--education-accent:${item.accent};`}>
+							<img
+								class="education-watermark"
+								src={item.badge}
+								alt=""
+								aria-hidden="true"
+								width="320"
+								height="320"
+							/>
 							<div class="education-copy">
 								<p class="meta">{item.period}</p>
 								<h2>{item.school}</h2>
@@ -69,24 +76,16 @@ const latestPosts = [...latestNotes, ...latestEssays]
 
 			<section class="entry-grid">
 				<a class="entry-card" href="/notes">
-					<p class="entry-label">01</p>
 					<h2>Notes</h2>
-					<p>Structured study notes arranged by topic and chapter, closer to a handbook than a feed.</p>
 				</a>
 				<a class="entry-card" href="/essays">
-					<p class="entry-label">02</p>
 					<h2>Essays</h2>
-					<p>Short writing on learning, process, daily life, and whatever deserves a quieter page.</p>
 				</a>
 				<a class="entry-card" href="/projects">
-					<p class="entry-label">03</p>
 					<h2>Projects</h2>
-					<p>Experiments, repositories, and ongoing work with links to code, demos, and notes.</p>
 				</a>
 				<a class="entry-card" href="/links">
-					<p class="entry-label">04</p>
 					<h2>Links</h2>
-					<p>My own social links, feed endpoints, and a small list of sites I want to point people to.</p>
 				</a>
 			</section>
 
@@ -203,52 +202,64 @@ const latestPosts = [...latestNotes, ...latestEssays]
 	.education-list {
 		display: grid;
 		grid-template-columns: 1fr;
-		gap: 0.85rem;
+		gap: 1rem;
 	}
 
 	.education-item {
-		display: grid;
-		grid-template-columns: 56px 1fr;
-		align-items: start;
-		gap: 0.9rem;
-		padding: 0.75rem 0;
+		position: relative;
+		display: block;
+		overflow: hidden;
+		padding: 1.45rem 1.65rem;
 		text-decoration: none;
 		color: inherit;
-		border-top: 1px solid rgba(var(--gray), 0.14);
+		border: 1px solid rgba(var(--gray), 0.2);
+		border-radius: 30px;
+		background: rgba(255, 255, 255, 0.82);
+		box-shadow: 0 10px 24px rgba(var(--black), 0.05);
 	}
 
 	.education-item:first-child {
-		padding-top: 0;
-		border-top: none;
+		padding-top: 1.45rem;
 	}
 
-	.school-badge {
-		width: 52px;
-		height: 52px;
-		border-radius: 50%;
-		box-shadow: 0 4px 12px rgba(var(--black), 0.08);
+	.education-watermark {
+		position: absolute;
+		right: -4.5rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 360px;
+		height: 360px;
+		opacity: 0.24;
+		pointer-events: none;
+		filter: saturate(0.9);
 	}
 
 	.education-copy {
 		min-width: 0;
+		position: relative;
+		z-index: 1;
+		max-width: 58%;
 	}
 
 	.education-item h2 {
-		font-size: 1.12rem;
-		margin: 0.12rem 0 0.2rem;
+		font-size: 1.95rem;
+		margin: 0 0 0.28rem;
 		font-family: "FZFangSong-Z02", "STFangsong", "FangSong", "Songti SC", serif;
-		font-weight: 500;
+		font-weight: 700;
+		color: var(--education-accent);
 	}
 
 	.education-item > div p {
 		margin: 0;
 		font-family: "FZFangSong-Z02", "STFangsong", "FangSong", "Songti SC", serif;
-		font-size: 0.98rem;
+		font-size: 1.08rem;
 		color: rgb(var(--gray-dark));
 	}
 
 	.education-item .meta {
-		font-size: 0.9rem;
+		margin-bottom: 0.75rem;
+		font-size: 0.98rem;
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
 	}
 
 	.entry-grid {
@@ -257,7 +268,7 @@ const latestPosts = [...latestNotes, ...latestEssays]
 	}
 
 	.entry-grid {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		margin-bottom: 1.25rem;
 	}
 
@@ -269,14 +280,19 @@ const latestPosts = [...latestNotes, ...latestEssays]
 	}
 
 	.entry-card {
-		padding: 1.25rem;
+		padding: 1rem 1.2rem;
 		text-decoration: none;
 		color: inherit;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: 72px;
 	}
 
 	.entry-card h2 {
-		font-size: 1.15rem;
-		margin: 0.35rem 0 0.55rem;
+		font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+		margin: 0;
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
 	}
 
 	.panel {
@@ -347,6 +363,12 @@ const latestPosts = [...latestNotes, ...latestEssays]
 		}
 	}
 
+	@media (max-width: 720px) {
+		.entry-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
 	@media (max-width: 900px) {
 		.entry-grid {
 			grid-template-columns: 1fr;
@@ -358,6 +380,25 @@ const latestPosts = [...latestNotes, ...latestEssays]
 
 		.education-list {
 			grid-template-columns: 1fr;
+		}
+
+		.education-copy {
+			max-width: 100%;
+		}
+
+		.education-item {
+			padding: 1.2rem 1.1rem;
+			border-radius: 22px;
+		}
+
+		.education-watermark {
+			width: 220px;
+			height: 220px;
+			right: -2.5rem;
+		}
+
+		.education-item h2 {
+			font-size: 1.45rem;
 		}
 
 		.panel li a {
