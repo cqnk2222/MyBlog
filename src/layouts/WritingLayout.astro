@@ -75,7 +75,7 @@ const isNote = variant === 'note';
 	}
 
 	.writing-shell.essay {
-		width: min(760px, calc(100% - 2rem));
+		width: min(900px, calc(100% - 2rem));
 	}
 
 	.writing-card {
@@ -89,6 +89,11 @@ const isNote = variant === 'note';
 		border: none;
 		background: transparent;
 		padding: 0;
+	}
+
+	.writing-shell.essay .writing-header {
+		max-width: 46rem;
+		margin: 0 auto 2.5rem;
 	}
 
 	.writing-header {
@@ -122,6 +127,21 @@ const isNote = variant === 'note';
 		color: rgb(var(--gray-dark));
 	}
 
+	.writing-shell.essay h1 {
+		font-size: clamp(2.9rem, 6vw, 4.6rem);
+		line-height: 0.98;
+		letter-spacing: -0.03em;
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+		margin-bottom: 1rem;
+	}
+
+	.writing-shell.essay .description {
+		font-size: 1.05rem;
+		line-height: 1.55;
+		max-width: 40rem;
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+	}
+
 	.tags {
 		display: flex;
 		flex-wrap: wrap;
@@ -143,7 +163,40 @@ const isNote = variant === 'note';
 	}
 
 	.essay-prose {
-		max-width: 64ch;
+		max-width: 38rem;
+		margin: 0 auto;
+		font-size: 0.98rem;
+		line-height: 1.72;
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+	}
+
+	.essay-prose :global(p) {
+		margin: 0 0 1.15rem;
+	}
+
+	.essay-prose :global(h2),
+	.essay-prose :global(h3) {
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+		line-height: 1.15;
+		margin-top: 2.2rem;
+	}
+
+	.essay-prose :global(img),
+	.essay-prose :global(picture img) {
+		width: 100%;
+		margin: 1.8rem 0 2rem;
+		border-radius: 20px;
+		display: block;
+	}
+
+	.essay-prose :global(figure) {
+		margin: 1.8rem 0 2rem;
+	}
+
+	.essay-prose :global(figcaption) {
+		font-size: 0.88rem;
+		color: rgb(var(--gray));
+		margin-top: 0.65rem;
 	}
 
 	@media (max-width: 720px) {
@@ -154,6 +207,10 @@ const isNote = variant === 'note';
 
 		.writing-shell.essay .writing-card {
 			padding: 0;
+		}
+
+		.writing-shell.essay h1 {
+			font-size: 2.5rem;
 		}
 	}
 </style>
