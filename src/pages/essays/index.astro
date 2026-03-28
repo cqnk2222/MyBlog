@@ -18,14 +18,7 @@ const essays = (await getCollection('essays')).sort(
 	<body>
 		<Header />
 		<main class="essays-page">
-			<section class="intro">
-				<p class="eyebrow">Essays</p>
-				<h1>Short writing, centered on the page.</h1>
-				<p>
-					These posts are quieter than notes. They focus on reflection, process, and small observations
-					from study and daily life.
-				</p>
-			</section>
+			<h1 class="page-title">Essays</h1>
 			<section class="essay-list">
 				{essays.map((essay) => (
 					<article>
@@ -44,13 +37,17 @@ const essays = (await getCollection('essays')).sort(
 
 <style>
 	.essays-page {
-		width: min(760px, calc(100% - 2rem));
+		width: min(820px, calc(100% - 2rem));
 		margin: 0 auto;
-		padding: 3rem 0 4rem;
+		padding: 2.4rem 0 4rem;
 	}
 
-	.intro {
-		margin-bottom: 2.5rem;
+	.page-title {
+		margin-bottom: 1.6rem;
+		font-size: 1.15rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: rgb(var(--gray));
 	}
 
 	.eyebrow,
@@ -64,24 +61,48 @@ const essays = (await getCollection('essays')).sort(
 
 	.essay-list {
 		display: grid;
-		gap: 1.5rem;
+		gap: 0;
 	}
 
 	.essay-list article {
-		padding-top: 1.5rem;
 		border-top: 1px solid rgba(var(--gray), 0.18);
 	}
 
 	.essay-list a {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 1rem;
+		padding: 1rem 0;
 		color: inherit;
 		text-decoration: none;
 	}
 
 	h2 {
-		margin: 0.45rem 0 0.65rem;
+		margin: 0.28rem 0 0.2rem;
+		font-size: clamp(1rem, 1.45vw, 1.12rem);
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+		line-height: 1.25;
+		display: -webkit-box;
+		-webkit-line-clamp: 1;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 
 	.essay-list p:last-child {
 		margin-bottom: 0;
+	}
+
+	.essay-list article p:not(.date) {
+		font-size: 0.95rem;
+		margin: 0;
+		max-width: 36rem;
+	}
+
+	@media (max-width: 720px) {
+		.essay-list a {
+			flex-direction: column;
+			align-items: flex-start;
+		}
 	}
 </style>
