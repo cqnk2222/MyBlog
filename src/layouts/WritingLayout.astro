@@ -14,10 +14,36 @@ interface Props {
 	section?: string;
 	chapter?: string;
 	tags?: string[];
+	currentSlug?: string;
+	noteSections?: Array<{
+		section: string;
+		items: Array<{ id: string; title: string; chapter: string; section: string }>;
+	}>;
+	headings?: Array<{ depth: number; slug: string; text: string }>;
+	sidebarMode?: 'default' | 'edge';
+	previousNote?: { id: string; title: string; chapter: string };
+	nextNote?: { id: string; title: string; chapter: string };
 }
 
-const { title, description, pubDate, updatedDate, variant, section, chapter, tags = [] } = Astro.props;
+const {
+	title,
+	description,
+	pubDate,
+	updatedDate,
+	variant,
+	section,
+	chapter,
+	tags = [],
+	currentSlug,
+	noteSections = [],
+	headings = [],
+	sidebarMode = 'default',
+	previousNote,
+	nextNote,
+} = Astro.props;
 const isNote = variant === 'note';
+const isEdgeSidebar = sidebarMode === 'edge';
+const activeSection = noteSections.find((group) => group.items.some((item) => item.id === currentSlug))?.section;
 ---
 
 <!doctype html>
@@ -28,50 +54,251 @@ const isNote = variant === 'note';
 	<body>
 		<Header />
 		<main class:list={['writing-shell', { note: isNote, essay: !isNote }]}>
-			<article class="writing-card">
-				<header class="writing-header">
-					{isNote ? (
-						<div class="eyebrow-group">
-							<p class="eyebrow">{section}</p>
-							{chapter && <p class="chapter">{chapter}</p>}
-						</div>
-					) : (
-						<p class="eyebrow">Essay</p>
-					)}
-					<h1>{title}</h1>
-					<p class="description">{description}</p>
-					<div class="meta">
-						<FormattedDate date={pubDate} />
-						{
-							updatedDate && (
-								<span class="updated">
-									Updated <FormattedDate date={updatedDate} />
-								</span>
-							)
-						}
+			{
+				isNote ? (
+					<div class:list={['note-layout', { 'note-layout-edge': isEdgeSidebar }]}>
+						<aside id="note-sidebar" class:list={['note-sidebar', { 'note-sidebar-edge': isEdgeSidebar }]}>
+							<div class="sidebar-topbar">
+								<button
+									id="sidebar-toggle"
+									class="sidebar-toggle"
+									type="button"
+									aria-expanded="true"
+									aria-controls="note-sidebar"
+								>
+									Hide sidebar
+								</button>
+							</div>
+							<div class="sidebar-block">
+								<p class="sidebar-label">Documentation</p>
+								<div class="doc-tree">
+									{noteSections.map((group) => (
+										<section class="doc-group" data-doc-group>
+											<button
+												class:list={['doc-group-toggle', { active: group.section === activeSection }]}
+												type="button"
+												data-doc-toggle
+												aria-expanded={group.section === activeSection ? 'true' : 'false'}
+											>
+												<span class="doc-group-title">{group.section}</span>
+												<span class="doc-group-arrow" aria-hidden="true">⌄</span>
+											</button>
+											<div
+												class:list={['doc-group-panel', { open: group.section === activeSection }]}
+												data-doc-panel
+											>
+												<ul class="note-nav">
+													{group.items.map((item) => (
+														<li>
+															<a href={`/notes/${item.id}/`} class:list={{ active: item.id === currentSlug }}>
+																<span class="nav-chapter">{item.chapter}</span>
+																<span class="nav-title">{item.title}</span>
+															</a>
+														</li>
+													))}
+												</ul>
+											</div>
+										</section>
+									))}
+								</div>
+							</div>
+							{
+								headings.length > 0 && (
+									<div class="sidebar-block">
+										<p class="sidebar-label">On this page</p>
+										<ul class="heading-nav">
+											{headings
+												.filter((heading) => heading.depth <= 3)
+												.map((heading) => (
+													<li class:list={{ nested: heading.depth > 2 }}>
+														<a href={`#${heading.slug}`}>{heading.text}</a>
+													</li>
+												))}
+										</ul>
+									</div>
+								)
+							}
+						</aside>
+						<article class="writing-card note-card">
+							<header class="writing-header">
+								<div class="note-toolbar">
+									<button
+										id="sidebar-toggle-inline"
+										class="sidebar-toggle inline-toggle"
+										type="button"
+										aria-expanded="false"
+										aria-controls="note-sidebar"
+									>
+										Show sidebar
+									</button>
+								</div>
+								<div class="eyebrow-group">
+									<p class="eyebrow">{section}</p>
+									{chapter && <p class="chapter">{chapter}</p>}
+								</div>
+								<h1>{title}</h1>
+								<p class="description">{description}</p>
+								<div class="meta">
+									<FormattedDate date={pubDate} />
+									{
+										updatedDate && (
+											<span class="updated">
+												Updated <FormattedDate date={updatedDate} />
+											</span>
+										)
+									}
+								</div>
+								{
+									tags.length > 0 && (
+										<ul class="tags" aria-label="tags">
+											{tags.map((tag) => <li>{tag}</li>)}
+										</ul>
+									)
+								}
+							</header>
+							<div class="prose note-prose">
+								<slot />
+							</div>
+							{
+								(previousNote || nextNote) && (
+									<nav class="note-pagination" aria-label="note pagination">
+										{previousNote ? (
+											<a class="page-card" href={`/notes/${previousNote.id}/`}>
+												<span class="page-label">Previous</span>
+												<strong>{previousNote.title}</strong>
+												<span>{previousNote.chapter}</span>
+											</a>
+										) : (
+											<div></div>
+										)}
+										{nextNote && (
+											<a class="page-card next" href={`/notes/${nextNote.id}/`}>
+												<span class="page-label">Next</span>
+												<strong>{nextNote.title}</strong>
+												<span>{nextNote.chapter}</span>
+											</a>
+										)}
+									</nav>
+								)
+							}
+						</article>
 					</div>
-					{
-						isNote && tags.length > 0 && (
-							<ul class="tags" aria-label="tags">
-								{tags.map((tag) => <li>{tag}</li>)}
-							</ul>
-						)
-					}
-				</header>
-				<div class:list={['prose', { 'essay-prose': !isNote }]}>
-					<slot />
-				</div>
-			</article>
+				) : (
+					<article class="writing-card">
+						<header class="writing-header">
+							<p class="eyebrow">Essay</p>
+							<h1>{title}</h1>
+							<p class="description">{description}</p>
+							<div class="meta">
+								<FormattedDate date={pubDate} />
+								{
+									updatedDate && (
+										<span class="updated">
+											Updated <FormattedDate date={updatedDate} />
+										</span>
+									)
+								}
+							</div>
+						</header>
+						<div class="prose essay-prose">
+							<slot />
+						</div>
+					</article>
+				)
+			}
 		</main>
 		<Footer />
+		{
+			isNote && (
+				<script is:inline>
+					const root = document.documentElement;
+					const button = document.getElementById('sidebar-toggle');
+					const inlineButton = document.getElementById('sidebar-toggle-inline');
+					const sidebar = document.getElementById('note-sidebar');
+					const storageKey = 'note-sidebar-collapsed';
+
+					const applyCollapsed = (collapsed) => {
+						root.classList.toggle('note-sidebar-collapsed', collapsed);
+						if (sidebar) sidebar.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+						if (button) {
+							button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+							button.textContent = collapsed ? 'Show sidebar' : 'Hide sidebar';
+						}
+						if (inlineButton) {
+							inlineButton.hidden = !collapsed;
+							inlineButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+						}
+					};
+
+					const initialCollapsed = localStorage.getItem(storageKey) === 'true';
+					applyCollapsed(initialCollapsed);
+
+					button?.addEventListener('click', () => {
+						const next = !root.classList.contains('note-sidebar-collapsed');
+						localStorage.setItem(storageKey, String(next));
+						applyCollapsed(next);
+					});
+
+					inlineButton?.addEventListener('click', () => {
+						localStorage.setItem(storageKey, 'false');
+						applyCollapsed(false);
+					});
+
+					const docGroups = Array.from(document.querySelectorAll('[data-doc-group]'));
+					const syncPanels = () => {
+						for (const group of docGroups) {
+							const toggle = group.querySelector('[data-doc-toggle]');
+							const panel = group.querySelector('[data-doc-panel]');
+							if (!(toggle instanceof HTMLElement) || !(panel instanceof HTMLElement)) continue;
+							const expanded = toggle.getAttribute('aria-expanded') === 'true';
+							panel.style.maxHeight = expanded ? `${panel.scrollHeight}px` : '0px';
+						}
+					};
+
+					for (const group of docGroups) {
+						const toggle = group.querySelector('[data-doc-toggle]');
+						if (!(toggle instanceof HTMLElement)) continue;
+						toggle.addEventListener('click', () => {
+							const expanded = toggle.getAttribute('aria-expanded') === 'true';
+							toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+							syncPanels();
+						});
+					}
+
+					syncPanels();
+					window.addEventListener('resize', syncPanels);
+				</script>
+			)
+		}
 	</body>
 </html>
 
 <style>
+	:global(html.note-sidebar-collapsed) .note-layout,
+	:global(html.note-sidebar-collapsed) .note-layout-edge {
+		grid-template-columns: 1fr;
+	}
+
+	:global(html.note-sidebar-collapsed) .note-sidebar {
+		display: none;
+	}
+
 	.writing-shell {
 		width: min(1100px, calc(100% - 2rem));
 		margin: 0 auto;
 		padding: 3rem 0 4rem;
+	}
+
+	.note-layout {
+		display: grid;
+		grid-template-columns: 270px minmax(0, 1fr);
+		gap: 1.25rem;
+		align-items: start;
+	}
+
+	.note-layout-edge {
+		grid-template-columns: 250px minmax(0, 1fr);
+		gap: 1rem;
 	}
 
 	.writing-shell.essay {
@@ -83,6 +310,179 @@ const isNote = variant === 'note';
 		border: 1px solid rgba(var(--gray), 0.18);
 		border-radius: 24px;
 		padding: 2.25rem;
+	}
+
+	.note-card {
+		min-width: 0;
+	}
+
+	.note-toolbar {
+		display: flex;
+		justify-content: flex-start;
+		margin-bottom: 1rem;
+	}
+
+	.sidebar-topbar {
+		display: flex;
+		justify-content: flex-start;
+		margin-bottom: 0.9rem;
+	}
+
+	.sidebar-toggle {
+		border: 1px solid rgba(var(--gray), 0.18);
+		background: rgba(255, 255, 255, 0.92);
+		border-radius: 999px;
+		padding: 0.45rem 0.85rem;
+		font-size: 0.88rem;
+		color: rgb(var(--gray-dark));
+		cursor: pointer;
+	}
+
+	.sidebar-toggle:hover {
+		border-color: rgba(var(--gray), 0.3);
+	}
+
+	.inline-toggle[hidden] {
+		display: none;
+	}
+
+	.note-sidebar {
+		position: sticky;
+		top: 92px;
+		align-self: start;
+		padding: 0.25rem 0 0.25rem 0;
+		margin-left: -1.25rem;
+		padding-right: 1rem;
+		border-right: 1px solid rgba(var(--gray), 0.16);
+	}
+
+	.note-sidebar-edge {
+		margin-left: -2.25rem;
+		padding-left: 0.25rem;
+	}
+
+	.sidebar-block + .sidebar-block {
+		margin-top: 1.35rem;
+		padding-top: 1.2rem;
+		border-top: 1px solid rgba(var(--gray), 0.12);
+	}
+
+	.sidebar-label {
+		margin: 0 0 0.8rem;
+		font-size: 0.8rem;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: rgb(var(--gray));
+	}
+
+	.note-nav,
+	.heading-nav {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.note-nav a,
+	.heading-nav a {
+		display: block;
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.note-nav a {
+		padding: 0.55rem 0.7rem;
+		border-radius: 12px;
+		background: transparent;
+		border-left: 2px solid transparent;
+	}
+
+	.doc-group + .doc-group {
+		margin-top: 0.5rem;
+	}
+
+	.doc-group {
+		padding-bottom: 0.15rem;
+	}
+
+	.doc-group-toggle {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+		padding: 0.3rem 0;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.doc-group-title {
+		margin: 0;
+		font-size: 0.82rem;
+		font-weight: 700;
+		color: rgb(var(--gray));
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.doc-group-toggle.active .doc-group-title {
+		color: rgb(var(--gray-dark));
+	}
+
+	.doc-group-arrow {
+		font-size: 0.92rem;
+		color: rgb(var(--gray));
+		transform: rotate(-90deg);
+		transition: transform 180ms ease;
+	}
+
+	.doc-group-toggle[aria-expanded='true'] .doc-group-arrow {
+		transform: rotate(0deg);
+	}
+
+	.doc-group-panel {
+		max-height: 0;
+		overflow: hidden;
+		transition: max-height 220ms ease;
+	}
+
+	.doc-group-panel.open {
+		margin-top: 0.2rem;
+	}
+
+	.note-nav a.active {
+		background: rgba(var(--gray-light), 0.9);
+		border-left-color: var(--accent);
+	}
+
+	.nav-chapter,
+	.nav-title {
+		display: block;
+	}
+
+	.nav-chapter {
+		font-size: 0.8rem;
+		color: rgb(var(--gray));
+		margin-bottom: 0.12rem;
+	}
+
+	.nav-title {
+		font-size: 0.92rem;
+		line-height: 1.32;
+		font-weight: 600;
+	}
+
+	.heading-nav li.nested {
+		padding-left: 0.75rem;
+	}
+
+	.heading-nav a {
+		font-size: 0.88rem;
+		color: rgb(var(--gray-dark));
+		padding: 0.18rem 0;
 	}
 
 	.writing-shell.essay .writing-card {
@@ -162,6 +562,77 @@ const isNote = variant === 'note';
 		max-width: 72ch;
 	}
 
+	.note-prose {
+		max-width: 72ch;
+		font-size: 0.95rem;
+		line-height: 1.68;
+	}
+
+	.note-prose :global(h2),
+	.note-prose :global(h3) {
+		scroll-margin-top: 100px;
+	}
+
+	.note-prose :global(p),
+	.note-prose :global(li) {
+		font-size: 0.95rem;
+	}
+
+	.note-prose :global(h2) {
+		font-size: 1.45rem;
+		margin-top: 2.2rem;
+		margin-bottom: 0.8rem;
+	}
+
+	.note-prose :global(h3) {
+		font-size: 1.15rem;
+		margin-top: 1.7rem;
+		margin-bottom: 0.6rem;
+	}
+
+	.note-prose :global(pre) {
+		font-size: 0.88rem;
+	}
+
+	.note-pagination {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1rem;
+		margin-top: 2.75rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid rgba(var(--gray), 0.14);
+	}
+
+	.page-card {
+		display: grid;
+		gap: 0.2rem;
+		padding: 1rem 1.1rem;
+		border-radius: 16px;
+		background: rgba(var(--gray-light), 0.45);
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.page-card.next {
+		text-align: right;
+	}
+
+	.page-label {
+		font-size: 0.78rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: rgb(var(--gray));
+	}
+
+	.page-card strong {
+		font-size: 0.98rem;
+	}
+
+	.page-card span:last-child {
+		font-size: 0.88rem;
+		color: rgb(var(--gray));
+	}
+
 	.essay-prose {
 		max-width: 38rem;
 		margin: 0 auto;
@@ -200,6 +671,26 @@ const isNote = variant === 'note';
 	}
 
 	@media (max-width: 720px) {
+		.note-layout {
+			grid-template-columns: 1fr;
+		}
+
+		.note-layout-edge {
+			grid-template-columns: 1fr;
+		}
+
+		.note-sidebar {
+			position: static;
+			padding: 0;
+			margin-left: 0;
+			padding-right: 0;
+			border-right: none;
+		}
+
+		.note-pagination {
+			grid-template-columns: 1fr;
+		}
+
 		.writing-card {
 			padding: 1.5rem;
 			border-radius: 18px;

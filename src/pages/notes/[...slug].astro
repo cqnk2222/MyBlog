@@ -1,5 +1,6 @@
 ---
 import { type CollectionEntry, getCollection, render } from 'astro:content';
+import { buildNoteSections, getAdjacentNotes } from '../../data/notes';
 import WritingLayout from '../../layouts/WritingLayout.astro';
 
 export async function getStaticPaths() {
@@ -13,9 +14,30 @@ export async function getStaticPaths() {
 type Props = CollectionEntry<'notes'>;
 
 const note = Astro.props;
-const { Content } = await render(note);
+const allNotes = await getCollection('notes');
+const noteSections = buildNoteSections(allNotes);
+const { previous, next } = getAdjacentNotes(allNotes, note.id);
+
+const { Content, headings } = await render(note);
 ---
 
-<WritingLayout variant="note" {...note.data}>
+<WritingLayout
+	variant="note"
+	sidebarMode="edge"
+	noteSections={noteSections}
+	headings={headings}
+	currentSlug={note.id}
+	previousNote={
+		previous
+			? { id: previous.id, title: previous.data.title, chapter: previous.data.chapter }
+			: undefined
+	}
+	nextNote={
+		next
+			? { id: next.id, title: next.data.title, chapter: next.data.chapter }
+			: undefined
+	}
+	{...note.data}
+>
 	<Content />
 </WritingLayout>
