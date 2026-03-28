@@ -3,24 +3,7 @@ import { getCollection } from 'astro:content';
 import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
-import FormattedDate from '../../components/FormattedDate.astro';
-
-const notes = (await getCollection('notes')).sort((a, b) => {
-	if (a.data.section !== b.data.section) {
-		return a.data.section.localeCompare(b.data.section);
-	}
-	return a.data.order - b.data.order;
-});
-
-const groupedNotes = notes.reduce(
-	(groups, note) => {
-		const list = groups.get(note.data.section) ?? [];
-		list.push(note);
-		groups.set(note.data.section, list);
-		return groups;
-	},
-	new Map<string, typeof notes>(),
-);
+import { noteSpaces } from '../../data/notes';
 ---
 
 <!doctype html>
@@ -31,27 +14,15 @@ const groupedNotes = notes.reduce(
 	<body>
 		<Header />
 		<main class="notes-page">
-			<section class="notes-sections">
-				{Array.from(groupedNotes.entries()).map(([section, items]) => (
-					<section class="section-card">
-						<header>
-							<h2>{section}</h2>
-						</header>
-						<ol>
-							{items.map((note) => (
-								<li>
-									<a href={`/notes/${note.id}/`}>
-										<div>
-											<p class="chapter">{note.data.chapter}</p>
-											<h3>{note.data.title}</h3>
-											<p class="summary">{note.data.description}</p>
-										</div>
-										<p class="date"><FormattedDate date={note.data.pubDate} /></p>
-									</a>
-								</li>
-							))}
-						</ol>
-					</section>
+			<h1 class="page-title">Notes</h1>
+			<section class="notes-list">
+				{noteSpaces.map((space) => (
+					<article>
+						<a href={space.href} target="_blank" rel="noreferrer">
+							<h2>{space.title}</h2>
+							<p class="open-label">Open</p>
+						</a>
+					</article>
 				))}
 			</section>
 		</main>
@@ -61,71 +32,54 @@ const groupedNotes = notes.reduce(
 
 <style>
 	.notes-page {
-		width: min(980px, calc(100% - 2rem));
+		width: min(820px, calc(100% - 2rem));
 		margin: 0 auto;
-		padding: 2.25rem 0 4rem;
+		padding: 2.4rem 0 4rem;
 	}
 
-	.chapter,
-	.date {
-		margin: 0;
-		font-size: 0.92rem;
+	.page-title {
+		margin-bottom: 1.6rem;
+		font-size: 1.15rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
 		color: rgb(var(--gray));
 	}
 
-	.notes-sections {
-		display: grid;
-		gap: 1rem;
-	}
-
-	.section-card {
-		padding: 0;
-	}
-
-	.section-card ol {
-		list-style: none;
-		padding: 0;
-		margin: 0.6rem 0 0;
+	.notes-list {
 		display: grid;
 		gap: 0;
 	}
 
-	.section-card li a {
+	.notes-list article {
+		border-top: 1px solid rgba(var(--gray), 0.18);
+	}
+
+	.notes-list a {
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
 		gap: 1rem;
-		padding: 0.85rem 0;
-		border-top: 1px solid rgba(var(--gray), 0.14);
+		padding: 1rem 0;
 		color: inherit;
 		text-decoration: none;
 	}
 
-	.section-card li:first-child a {
-		padding-top: 0.85rem;
+	h2 {
+		margin: 0;
+		font-size: clamp(1rem, 1.45vw, 1.12rem);
+		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+		line-height: 1.25;
 	}
 
-	h2 {
-		margin-bottom: 0;
-		font-size: 1rem;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
+	.open-label {
+		margin: 0;
+		font-size: 0.9rem;
 		color: rgb(var(--gray));
 	}
 
-	h3 {
-		margin: 0.18rem 0 0.22rem;
-		font-size: 1rem;
-	}
-
-	.summary {
-		margin: 0;
-		max-width: 38rem;
-		font-size: 0.96rem;
-	}
-
 	@media (max-width: 720px) {
-		.section-card li a {
-			flex-direction: column;
+		.notes-list a {
+			align-items: flex-start;
 		}
 	}
 </style>
