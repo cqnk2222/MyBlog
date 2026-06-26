@@ -1,0 +1,267 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+interface Props {
+	entry: CollectionEntry<'essays'>;
+}
+
+const { entry } = Astro.props;
+const { title, titleEn, description, pubDate, author = '杨浩', location = '写于北京' } = entry.data;
+
+// 格式化日期为中文格式
+const year = pubDate.getFullYear();
+const month = pubDate.getMonth() + 1;
+const day = pubDate.getDate();
+const dateStr = `${year} 年 ${month} 月 ${day} 日`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={title} description={description} />
+		<link rel="stylesheet" href="/src/styles/global.css" />
+	</head>
+	<body>
+		<Header />
+
+		<article class="essay-article">
+			<!-- 顶部色条 -->
+			<div class="top-bar"></div>
+
+			<!-- 面包屑导航 -->
+			<div class="breadcrumb">
+				<a href="/essays">← Essays</a>
+				<span class="category">随笔</span>
+			</div>
+
+			<!-- 正文 -->
+			<div class="content">
+				<!-- 标题区（居中） -->
+				<header class="article-header">
+					<div class="meta-date">随笔 · {dateStr}</div>
+					<h1 class="title-zh">{title}</h1>
+					{titleEn && <div class="title-en">{titleEn}</div>}
+				</header>
+
+				<!-- 正文（霞鹜文楷，长段落） -->
+				<div class="prose">
+					<slot />
+				</div>
+
+				<!-- 落款 -->
+				<div class="signature">
+					—— {author}，{location}
+				</div>
+			</div>
+		</article>
+
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.essay-article {
+		background: var(--bg-white);
+		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-card);
+		overflow: hidden;
+		max-width: var(--max-width-essay);
+		margin: 3rem auto;
+		color: var(--essays-body);
+	}
+
+	.top-bar {
+		height: 4px;
+		background: var(--essays-primary);
+	}
+
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 20px 64px;
+		border-bottom: 1px solid var(--essays-border);
+		font-size: var(--text-md);
+	}
+
+	.breadcrumb a {
+		color: #8a7b73;
+		text-decoration: none;
+		font-weight: 500;
+		transition: color 0.2s ease;
+	}
+
+	.breadcrumb a:hover {
+		color: var(--essays-primary);
+	}
+
+	.category {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: #c2b5ad;
+	}
+
+	.content {
+		padding: 64px 72px 64px;
+	}
+
+	/* 标题区 */
+	.article-header {
+		text-align: center;
+		margin-bottom: 50px;
+	}
+
+	.meta-date {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm-plus);
+		letter-spacing: 0.06em;
+		color: var(--essays-primary);
+		margin-bottom: 20px;
+	}
+
+	.title-zh {
+		margin: 0 0 16px;
+		font-family: var(--font-wenkai);
+		font-weight: 600;
+		font-size: var(--text-hero-lg);
+		letter-spacing: 0.02em;
+		line-height: var(--leading-relaxed);
+		color: var(--essays-heading);
+	}
+
+	.title-en {
+		font-family: var(--font-inter);
+		font-weight: 400;
+		font-size: 16px;
+		color: #a89a90;
+		letter-spacing: 0.01em;
+	}
+
+	/* 正文样式 */
+	.prose {
+		font-family: var(--font-wenkai);
+		font-size: var(--text-3xl);
+		line-height: var(--leading-essay);
+		color: var(--essays-body);
+		letter-spacing: 0.01em;
+	}
+
+	.prose :global(p) {
+		margin: 0 0 30px;
+	}
+
+	.prose :global(h2),
+	.prose :global(h3) {
+		font-family: var(--font-wenkai);
+		font-weight: 600;
+		line-height: var(--leading-normal);
+		margin-top: 40px;
+		margin-bottom: 20px;
+		color: var(--essays-heading);
+	}
+
+	.prose :global(h2) {
+		font-size: var(--text-5xl);
+	}
+
+	.prose :global(h3) {
+		font-size: var(--text-2xl);
+	}
+
+	/* 插图/插画 */
+	.prose :global(figure) {
+		margin: 40px 0;
+	}
+
+	.prose :global(figure img) {
+		width: 100%;
+		border-radius: var(--radius-md);
+	}
+
+	.prose :global(figcaption) {
+		margin-top: 12px;
+		text-align: center;
+		font-family: var(--font-inter);
+		font-size: var(--text-base);
+		color: #b3a89f;
+	}
+
+	/* 插图占位符 */
+	.prose :global(.image-placeholder) {
+		height: 300px;
+		border-radius: var(--radius-md);
+		background: repeating-linear-gradient(
+			45deg,
+			var(--essay-placeholder-1),
+			var(--essay-placeholder-1) 11px,
+			var(--essay-placeholder-2) 11px,
+			var(--essay-placeholder-2) 22px
+		);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.prose :global(.image-placeholder span) {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: #b3a89f;
+	}
+
+	/* Pull Quote - 引文 */
+	.prose :global(blockquote) {
+		margin: 46px 0;
+		padding: 0 32px;
+		text-align: center;
+		border: none;
+	}
+
+	.prose :global(blockquote p) {
+		margin: 0;
+		font-family: var(--font-wenkai);
+		font-size: var(--text-9xl);
+		line-height: var(--leading-body);
+		color: var(--essays-quote);
+		font-weight: 500;
+		letter-spacing: 0.03em;
+	}
+
+	/* 落款 */
+	.signature {
+		margin-top: 44px;
+		padding-top: 26px;
+		border-top: 1px solid var(--essays-border);
+		text-align: center;
+		font-family: var(--font-wenkai);
+		font-size: 16px;
+		color: var(--essays-meta);
+	}
+
+	@media (max-width: 768px) {
+		.essay-article {
+			margin: 2rem 1rem;
+		}
+
+		.breadcrumb,
+		.content {
+			padding: 20px 32px;
+		}
+
+		.title-zh {
+			font-size: 32px;
+		}
+
+		.prose {
+			font-size: 18px;
+			line-height: 2;
+		}
+
+		.prose :global(blockquote p) {
+			font-size: 22px;
+			padding: 0 16px;
+		}
+	}
+</style>

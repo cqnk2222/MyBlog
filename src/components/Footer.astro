@@ -1,22 +1,47 @@
 ---
+// 新版 Footer - 按设计稿像素级还原
 const today = new Date();
 ---
 
 <footer>
-	<p>&copy; {today.getFullYear()} YangHao Blog. All rights reserved.</p>
-	<p class="footer-note">Powered by Astro. Written by YangHao.</p>
+	<div class="footer-content">
+		<span>© {today.getFullYear()} YangHao · 杨浩</span>
+		<span class="footer-meta">Powered by Astro · Written by YangHao</span>
+	</div>
 </footer>
+
 <style>
 	footer {
-		padding: 2em 1em 6em 1em;
-		background: linear-gradient(var(--gray-gradient)) no-repeat;
-		color: rgb(var(--gray));
-		text-align: center;
+		border-top: 1px solid var(--border-strong);
+		padding: 30px 40px;
 	}
-	p {
-		margin: 0.35em 0;
+
+	.footer-content {
+		max-width: var(--max-width-content);
+		margin: 0 auto;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 10px;
+		font-size: var(--text-md);
+		color: var(--about-subtitle);
 	}
-	.footer-note {
-		font-size: 0.9em;
+
+	.footer-meta {
+		font-family: var(--font-mono);
+		font-size: var(--text-base);
+	}
+
+	@media (max-width: 768px) {
+		footer {
+			padding: 24px;
+		}
+
+		.footer-content {
+			flex-direction: column;
+			text-align: center;
+			gap: 8px;
+		}
 	}
 </style>

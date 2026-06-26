@@ -4,6 +4,7 @@ import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
+import { SITE_TITLE } from '../../consts';
 
 const essays = (await getCollection('essays')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
@@ -11,98 +12,112 @@ const essays = (await getCollection('essays')).sort(
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 	<head>
-		<BaseHead title="Essays" description="Short essays about learning, life, and the process of building." />
+		<BaseHead title={`Essays - ${SITE_TITLE}`} description="生活随笔 · 用文字记录的思考与感受" />
+		<link rel="stylesheet" href="/src/styles/global.css" />
 	</head>
 	<body>
 		<Header />
-		<main class="essays-page">
-			<h1 class="page-title">Essays</h1>
-			<section class="essay-list">
+		<main class="essays-index">
+			<header class="page-header">
+				<h1>Essays</h1>
+				<p class="page-intro">生活随笔 · 用文字记录的思考与感受</p>
+			</header>
+
+			<div class="essays-list">
 				{essays.map((essay) => (
-					<article>
+					<article class="essay-card">
 						<a href={`/essays/${essay.id}/`}>
-							<p class="date"><FormattedDate date={essay.data.pubDate} /></p>
+							<time><FormattedDate date={essay.data.pubDate} /></time>
 							<h2>{essay.data.title}</h2>
-							<p>{essay.data.description}</p>
+							<p class="description">{essay.data.description}</p>
 						</a>
 					</article>
 				))}
-			</section>
+			</div>
 		</main>
 		<Footer />
 	</body>
 </html>
 
 <style>
-	.essays-page {
-		width: min(820px, calc(100% - 2rem));
+	.essays-index {
+		max-width: 800px;
 		margin: 0 auto;
-		padding: 2.4rem 0 4rem;
+		padding: 4rem 2rem;
 	}
 
-	.page-title {
-		margin-bottom: 1.6rem;
-		font-size: 1.15rem;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: rgb(var(--gray));
+	.page-header {
+		padding: 0 0 36px;
 	}
 
-	.eyebrow,
-	.date {
-		margin: 0;
-		font-size: 0.92rem;
-		color: rgb(var(--gray));
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+	.page-header h1 {
+		margin: 0 0 10px;
+		font-weight: 800;
+		font-size: var(--text-hero-sm);
+		letter-spacing: -0.02em;
+		color: var(--essays-primary);
 	}
 
-	.essay-list {
+	.page-intro {
+		font-size: var(--text-2xl);
+		color: var(--text-secondary);
+		font-weight: 300;
+	}
+
+	.essays-list {
 		display: grid;
-		gap: 0;
+		gap: 2rem;
 	}
 
-	.essay-list article {
-		border-top: 1px solid rgba(var(--gray), 0.18);
+	.essay-card {
+		border: 1px solid var(--border-weak);
+		border-radius: var(--radius-xl);
+		padding: 2rem;
+		transition: all 0.2s ease;
 	}
 
-	.essay-list a {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 1rem;
-		padding: 1rem 0;
-		color: inherit;
+	.essay-card:hover {
+		border-color: var(--essays-primary);
+		box-shadow: 0 4px 12px rgba(176, 105, 78, 0.1);
+	}
+
+	.essay-card a {
 		text-decoration: none;
+		color: inherit;
 	}
 
-	h2 {
-		margin: 0.28rem 0 0.2rem;
-		font-size: clamp(1rem, 1.45vw, 1.12rem);
-		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-		line-height: 1.25;
-		display: -webkit-box;
-		-webkit-line-clamp: 1;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
+	.essay-card time {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--text-meta);
+		display: block;
+		margin-bottom: 0.75rem;
 	}
 
-	.essay-list p:last-child {
-		margin-bottom: 0;
+	.essay-card h2 {
+		font-size: 1.5rem;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+		color: var(--essays-heading);
+		font-family: var(--font-wenkai);
 	}
 
-	.essay-list article p:not(.date) {
-		font-size: 0.95rem;
+	.essay-card .description {
+		font-size: 1rem;
+		line-height: 1.6;
+		color: var(--text-body);
 		margin: 0;
-		max-width: 36rem;
 	}
 
-	@media (max-width: 720px) {
-		.essay-list a {
-			flex-direction: column;
-			align-items: flex-start;
+	@media (max-width: 768px) {
+		.essays-index {
+			padding: 2rem 1.5rem;
+		}
+
+		.page-header h1 {
+			font-size: 2rem;
 		}
 	}
 </style>

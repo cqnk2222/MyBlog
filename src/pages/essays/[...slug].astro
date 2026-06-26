@@ -1,6 +1,6 @@
 ---
 import { type CollectionEntry, getCollection, render } from 'astro:content';
-import WritingLayout from '../../layouts/WritingLayout.astro';
+import EssaysLayout from '../../layouts/EssaysLayout.astro';
 
 export async function getStaticPaths() {
 	const essays = await getCollection('essays');
@@ -16,6 +16,6 @@ const essay = Astro.props;
 const { Content } = await render(essay);
 ---
 
-<WritingLayout variant="essay" {...essay.data}>
+<EssaysLayout entry={essay}>
 	<Content />
-</WritingLayout>
+</EssaysLayout>

@@ -1,0 +1,452 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import FormattedDate from '../components/FormattedDate.astro';
+
+interface Props {
+	entry: CollectionEntry<'notes'>;
+	seriesNotes?: CollectionEntry<'notes'>[];
+	prevNote?: CollectionEntry<'notes'>;
+	nextNote?: CollectionEntry<'notes'>;
+}
+
+const { entry, seriesNotes = [], prevNote, nextNote } = Astro.props;
+const { title, description, pubDate, section, chapter, series, tags = [], readingTime } = entry.data;
+
+// 获取系列信息
+const seriesTitle = series || section || 'Notes';
+const seriesCount = seriesNotes.length;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={title} description={description} />
+		<link rel="stylesheet" href="/src/styles/global.css" />
+	</head>
+	<body>
+		<Header />
+
+		<article class="notes-article">
+			<!-- 顶部色条 -->
+			<div class="top-bar"></div>
+
+			<!-- 面包屑导航 -->
+			<div class="breadcrumb">
+				<a href="/notes">← Notes</a>
+				{series && (
+					<>
+						<span class="separator">/</span>
+						<span class="current-series">{series}</span>
+					</>
+				)}
+			</div>
+
+			<div class="article-layout">
+				<!-- 侧栏 -->
+				<aside class="sidebar">
+					<div class="series-label">系列 · Series</div>
+					<div class="series-title">{seriesTitle}</div>
+					{seriesCount > 0 && (
+						<div class="series-meta">{seriesCount} 篇 · 持续更新</div>
+					)}
+
+					{seriesNotes.length > 0 && (
+						<nav class="series-nav">
+							{seriesNotes.map((note) => (
+								<a
+									href={`/notes/${note.id}/`}
+									class:list={['nav-item', { active: note.id === entry.id }]}
+								>
+									<span class="nav-order">{String(note.data.order || 0).padStart(2, '0')}</span>
+									<span class="nav-title">{note.data.title}</span>
+								</a>
+							))}
+						</nav>
+					)}
+				</aside>
+
+				<!-- 正文 -->
+				<div class="content">
+					<!-- 元信息 -->
+					<div class="meta-info">
+						{section && <span class="category">{section}</span>}
+						{section && <span class="dot"></span>}
+						<span><FormattedDate date={pubDate} format="YYYY-MM-DD" /></span>
+						{readingTime && (
+							<>
+								<span class="dot"></span>
+								<span>{readingTime}</span>
+							</>
+						)}
+					</div>
+
+					<!-- 标题 -->
+					<h1>{title}</h1>
+
+					<!-- 描述 -->
+					{description && <p class="description">{description}</p>}
+
+					<!-- 文章内容 -->
+					<div class="prose">
+						<slot />
+					</div>
+
+					<!-- 标签 -->
+					{tags.length > 0 && (
+						<div class="tags-section">
+							<span class="tags-label">标签</span>
+							{tags.map((tag) => (
+								<span class="tag">#{tag}</span>
+							))}
+						</div>
+					)}
+
+					<!-- 上一篇/下一篇 -->
+					{(prevNote || nextNote) && (
+						<nav class="pagination">
+							{prevNote ? (
+								<a href={`/notes/${prevNote.id}/`} class="page-link prev">
+									<div class="page-label">← 上一篇</div>
+									<div class="page-title">{prevNote.data.chapter || prevNote.data.title}</div>
+								</a>
+							) : (
+								<div></div>
+							)}
+							{nextNote && (
+								<a href={`/notes/${nextNote.id}/`} class="page-link next">
+									<div class="page-label">下一篇 →</div>
+									<div class="page-title">{nextNote.data.chapter || nextNote.data.title}</div>
+								</a>
+							)}
+						</nav>
+					)}
+				</div>
+			</div>
+		</article>
+
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.notes-article {
+		background: var(--bg-white);
+		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-card);
+		overflow: hidden;
+		max-width: var(--max-width-notes);
+		margin: 3rem auto;
+		color: var(--text-primary);
+	}
+
+	.top-bar {
+		height: 4px;
+		background: var(--notes-primary);
+	}
+
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 20px 40px;
+		border-bottom: 1px solid var(--border-weak);
+		font-size: var(--text-md);
+	}
+
+	.breadcrumb a {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		color: var(--text-tertiary);
+		text-decoration: none;
+		font-weight: 500;
+		transition: color 0.2s ease;
+	}
+
+	.breadcrumb a:hover {
+		color: var(--notes-primary);
+	}
+
+	.separator {
+		color: var(--border-light);
+		margin: 0 8px;
+	}
+
+	.current-series {
+		color: var(--notes-primary);
+	}
+
+	.article-layout {
+		display: flex;
+		align-items: stretch;
+	}
+
+	/* 侧栏 */
+	.sidebar {
+		width: var(--sidebar-width);
+		flex-shrink: 0;
+		border-right: 1px solid var(--border-weak);
+		background: var(--bg-sidebar);
+		padding: 30px 22px;
+	}
+
+	.series-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-meta-light);
+		margin-bottom: 8px;
+	}
+
+	.series-title {
+		font-weight: 700;
+		font-size: var(--text-xl);
+		color: var(--text-heading);
+		margin-bottom: 4px;
+	}
+
+	.series-meta {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--post-meta);
+		margin-bottom: 20px;
+	}
+
+	.series-nav {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
+	.nav-item {
+		display: flex;
+		gap: 11px;
+		padding: 9px 12px;
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		font-size: var(--text-md-plus);
+		color: var(--text-secondary);
+		transition: background 0.2s ease;
+	}
+
+	.nav-item:hover {
+		background: #f0f4f7;
+	}
+
+	.nav-item.active {
+		color: var(--notes-primary-dark);
+		font-weight: 600;
+		background: var(--notes-bg-light);
+		border-left: 3px solid var(--notes-primary);
+	}
+
+	.nav-order {
+		font-family: var(--font-mono);
+		color: var(--text-meta-light);
+	}
+
+	.nav-item.active .nav-order {
+		color: #7fb2db;
+	}
+
+	/* 正文 */
+	.content {
+		flex: 1;
+		min-width: 0;
+		padding: 42px 44px 44px;
+	}
+
+	.meta-info {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm-plus);
+		color: var(--post-meta);
+		margin-bottom: 22px;
+	}
+
+	.category {
+		color: var(--notes-primary);
+		font-weight: 600;
+	}
+
+	.dot {
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: var(--border-light);
+	}
+
+	h1 {
+		margin: 0 0 14px;
+		font-weight: 800;
+		font-size: var(--text-hero-sm);
+		letter-spacing: -0.02em;
+		line-height: var(--leading-snug);
+		color: var(--text-heading-dark);
+	}
+
+	.description {
+		margin: 0 0 36px;
+		font-size: var(--text-xl);
+		line-height: var(--leading-looser);
+		color: var(--text-secondary);
+		font-weight: 300;
+	}
+
+	/* Prose 样式 */
+	.prose {
+		font-size: var(--text-xl);
+		line-height: var(--leading-body-plus);
+		color: var(--text-body);
+	}
+
+	.prose :global(h2) {
+		margin: 0 0 16px;
+		font-weight: 700;
+		font-size: var(--text-6xl);
+		letter-spacing: -0.01em;
+		color: var(--text-heading);
+	}
+
+	.prose :global(h3) {
+		margin: 0 0 12px;
+		font-weight: 600;
+		font-size: var(--text-3xl);
+		color: var(--text-heading);
+	}
+
+	.prose :global(p) {
+		margin: 0 0 22px;
+	}
+
+	.prose :global(ul),
+	.prose :global(ol) {
+		margin: 0 0 28px;
+		padding-left: 22px;
+		line-height: 1.95;
+	}
+
+	.prose :global(li) {
+		margin-bottom: 8px;
+	}
+
+	/* Callout 提示框 */
+	.prose :global(.callout) {
+		display: flex;
+		gap: 14px;
+		padding: 16px 20px;
+		background: var(--notes-bg-lighter);
+		border: 1px solid var(--notes-border);
+		border-left: 3px solid var(--notes-primary);
+		border-radius: var(--radius-md);
+		margin-bottom: 40px;
+	}
+
+	.prose :global(.callout p) {
+		margin: 0;
+		font-size: var(--text-lg-plus);
+		line-height: var(--leading-looser);
+		color: #2c4a60;
+	}
+
+	/* 标签 */
+	.tags-section {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		flex-wrap: wrap;
+		padding-top: 26px;
+		border-top: 1px solid var(--border-weak);
+	}
+
+	.tags-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-meta-light);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		margin-right: 4px;
+	}
+
+	.tag {
+		font-size: var(--text-base);
+		color: var(--nav-text);
+		background: var(--bg-tag);
+		border-radius: var(--radius-full);
+		padding: 5px 13px;
+	}
+
+	/* 翻页 */
+	.pagination {
+		display: flex;
+		gap: 14px;
+		margin-top: 30px;
+	}
+
+	.page-link {
+		flex: 1;
+		text-decoration: none;
+		border: 1px solid #e4ebf0;
+		border-radius: var(--radius-xl);
+		padding: 14px 18px;
+		transition: border-color 0.2s ease;
+	}
+
+	.page-link:hover {
+		border-color: var(--notes-primary);
+	}
+
+	.page-link.next {
+		text-align: right;
+	}
+
+	.page-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-meta-light);
+		margin-bottom: 5px;
+	}
+
+	.page-title {
+		font-size: var(--text-lg);
+		font-weight: 600;
+		color: var(--nav-text);
+	}
+
+	@media (max-width: 1100px) {
+		.notes-article {
+			margin: 2rem 1rem;
+		}
+
+		.article-layout {
+			flex-direction: column;
+		}
+
+		.sidebar {
+			width: 100%;
+			border-right: none;
+			border-bottom: 1px solid var(--border-weak);
+		}
+	}
+
+	@media (max-width: 768px) {
+		.breadcrumb,
+		.content {
+			padding: 20px 24px;
+		}
+
+		h1 {
+			font-size: 28px;
+		}
+
+		.pagination {
+			flex-direction: column;
+		}
+	}
+</style>

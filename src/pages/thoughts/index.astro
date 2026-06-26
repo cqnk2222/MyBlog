@@ -1,0 +1,135 @@
+---
+import { getCollection } from 'astro:content';
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import FormattedDate from '../../components/FormattedDate.astro';
+import { SITE_TITLE } from '../../consts';
+
+const thoughts = (await getCollection('thoughts'))
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={`Thoughts - ${SITE_TITLE}`} description="关于 AI 时代的思考" />
+		<link rel="stylesheet" href="/src/styles/global.css" />
+	</head>
+	<body>
+		<Header />
+		<main class="thoughts-index">
+			<h1>Thoughts</h1>
+			<p class="intro">关于 AI 时代的思考</p>
+
+			<div class="thoughts-list">
+				{thoughts.map((thought) => (
+					<article class="thought-card">
+						<a href={`/thoughts/${thought.id}/`}>
+							<time><FormattedDate date={thought.data.pubDate} /></time>
+							<h2>{thought.data.title}</h2>
+							<p class="description">{thought.data.description}</p>
+							{thought.data.tags.length > 0 && (
+								<div class="tags">
+									{thought.data.tags.map(tag => (
+										<span class="tag">#{tag}</span>
+									))}
+								</div>
+							)}
+						</a>
+					</article>
+				))}
+			</div>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.thoughts-index {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 4rem 2rem;
+	}
+
+	h1 {
+		font-size: 3rem;
+		font-weight: 800;
+		margin-bottom: 1rem;
+		color: var(--thoughts-primary);
+	}
+
+	.intro {
+		font-size: 1.2rem;
+		color: var(--text-secondary);
+		margin-bottom: 3rem;
+	}
+
+	.thoughts-list {
+		display: grid;
+		gap: 2rem;
+	}
+
+	.thought-card {
+		border: 1px solid var(--border-weak);
+		border-radius: var(--radius-xl);
+		padding: 2rem;
+		transition: all 0.2s ease;
+	}
+
+	.thought-card:hover {
+		border-color: var(--thoughts-primary);
+		box-shadow: 0 4px 12px rgba(126, 90, 166, 0.1);
+	}
+
+	.thought-card a {
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.thought-card time {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--text-meta);
+		display: block;
+		margin-bottom: 0.75rem;
+	}
+
+	.thought-card h2 {
+		font-size: 1.5rem;
+		font-weight: 700;
+		margin-bottom: 0.75rem;
+		color: var(--thoughts-heading);
+	}
+
+	.thought-card .description {
+		font-size: 1rem;
+		line-height: 1.6;
+		color: var(--text-body);
+		margin-bottom: 1rem;
+	}
+
+	.tags {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.tag {
+		font-size: var(--text-sm);
+		color: var(--thoughts-text);
+		background: var(--thoughts-bg);
+		border-radius: var(--radius-full);
+		padding: 4px 10px;
+	}
+
+	@media (max-width: 768px) {
+		.thoughts-index {
+			padding: 2rem 1.5rem;
+		}
+
+		h1 {
+			font-size: 2rem;
+		}
+	}
+</style>
