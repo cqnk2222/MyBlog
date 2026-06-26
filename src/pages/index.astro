@@ -32,7 +32,7 @@ function getCategory(collection: string) {
 
 		<!-- HERO -->
 		<section class="hero">
-			<div class="avatar">YH</div>
+			<img src="/avatar.jpg" alt="YangHao" class="avatar" />
 			<h1>
 				<span class="name-en">YangHao</span>
 			</h1>
@@ -160,16 +160,9 @@ function getCategory(collection: string) {
 		height: 128px;
 		border-radius: 50%;
 		margin: 0 auto 34px;
-		background: var(--avatar-gradient);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--bg-white);
-		font-weight: 700;
-		font-size: var(--text-hero-xl);
-		letter-spacing: -0.01em;
 		box-shadow: var(--shadow-avatar);
 		border: 5px solid var(--bg-white);
+		object-fit: cover;
 	}
 
 	.hero h1 {
