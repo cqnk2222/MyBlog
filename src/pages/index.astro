@@ -2,407 +2,454 @@
 import { getCollection } from 'astro:content';
 import BaseHead from '../components/BaseHead.astro';
 import Footer from '../components/Footer.astro';
-import FormattedDate from '../components/FormattedDate.astro';
 import Header from '../components/Header.astro';
-import { education, profile } from '../data/site';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import FormattedDate from '../components/FormattedDate.astro';
+import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 
-const latestNotes = (await getCollection('notes'))
-	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
-	.slice(0, 2);
-
-const latestEssays = (await getCollection('essays'))
-	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
-	.slice(0, 2);
-
-const latestPosts = [...latestNotes, ...latestEssays]
+const latestPosts = (await getCollection('notes'))
+	.concat(await getCollection('essays'))
+	.concat(await getCollection('thoughts'))
 	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
 	.slice(0, 4);
+
+// 获取分类标签
+function getCategory(collection: string) {
+	if (collection === 'notes') return { label: 'NLP', color: 'var(--notes-primary)' };
+	if (collection === 'essays') return { label: '随笔', color: 'var(--link-secondary)' };
+	if (collection === 'thoughts') return { label: 'Thoughts', color: 'var(--thoughts-primary)' };
+	return { label: collection, color: 'var(--text-meta)' };
+}
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 	<head>
 		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+		<link rel="stylesheet" href="/src/styles/global.css" />
 	</head>
-	<body>
+	<body class="home-page">
 		<Header />
-		<main class="home-page">
-			<section class="hero">
-				<img
-					class="avatar"
-					src="/avatar.jpg"
-					alt="YangHao avatar"
-					width="128"
-					height="128"
-					onerror="this.onerror=null;this.src='/avatar-badge.svg';"
-				/>
-				<h1>{profile.name}</h1>
-				<p class="hero-meta">
-					<span>{profile.location}</span>
-					<span>·</span>
-					<a href={profile.github} target="_blank" rel="noreferrer">GitHub</a>
-				</p>
-				<div class="about-block">
-					<p class="eyebrow">About</p>
-					<p class="hero-copy">{profile.intro}</p>
+
+		<!-- HERO -->
+		<section class="hero">
+			<div class="avatar">YH</div>
+			<h1>
+				<span class="name-en">YangHao</span>
+			</h1>
+			<div class="meta-info">
+				<span class="location">
+					<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--notes-primary)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+						<circle cx="12" cy="10" r="3"></circle>
+					</svg>
+					China / Beijing
+				</span>
+				<a href="https://github.com/cqnk2222" class="github-link">
+					<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
+						<path d="M12 2A10 10 0 0 0 8.84 21.5c.5.08.66-.22.66-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.26-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.39.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.16.57.67.48A10 10 0 0 0 12 2Z"></path>
+					</svg>
+					GitHub
+				</a>
+			</div>
+		</section>
+
+		<!-- MAIN CONTENT -->
+		<main class="main-content">
+			<!-- ABOUT -->
+			<section class="section">
+				<h2 class="section-title">About</h2>
+				<div class="section-content">
+					<div class="about-role">Student / Developer</div>
+					<p class="about-text">Hello, I'm YangHao, a computer science student at Peking University. I'm interested in large language models, literature, and building a thoughtful space for notes and writing.</p>
+					<div class="button-group">
+						<a href="/about" class="button-outline">More about me →</a>
+					</div>
 				</div>
 			</section>
 
-			<section class="education-panel">
-				<div class="section-head">
-					<p class="eyebrow">Education</p>
+			<!-- POSTS -->
+			<section class="section">
+				<h2 class="section-title">Posts</h2>
+				<div class="section-content">
+					<div class="posts-list">
+						{latestPosts.map((post) => {
+							const category = getCategory(post.collection);
+							return (
+								<a href={`/${post.collection}/${post.id}/`} class="post-item">
+									<span class="post-date">
+										<FormattedDate date={post.data.pubDate} format="MMM DD" />
+									</span>
+									<span class="post-title">{post.data.title}</span>
+									<span class="post-category" style={`color: ${category.color}`}>
+										{category.label}
+									</span>
+								</a>
+							);
+						})}
+					</div>
+					<a href="/blog" class="more-link">More posts →</a>
 				</div>
-				<div class="education-list">
-					{education.map((item) => (
-						<a class="education-item" href={item.href} style={`--education-accent:${item.accent};`}>
-							<img
-								class="education-watermark"
-								src={item.badge}
-								alt=""
-								aria-hidden="true"
-								width="320"
-								height="320"
-							/>
-							<div class="education-copy">
-								<p class="meta">{item.period}</p>
-								<h2>{item.school}</h2>
-								<p>{item.detail}</p>
+			</section>
+
+			<!-- EDUCATION -->
+			<section class="section">
+				<h2 class="section-title">Education</h2>
+				<div class="section-content">
+					<div class="edu-list">
+						<div class="edu-item">
+							<span class="edu-period">2023 — Present</span>
+							<div class="edu-details">
+								<div class="edu-school">北京大学 Peking University</div>
+								<div class="edu-major">信息与计算科学 · Information & Computing Science</div>
 							</div>
+						</div>
+						<div class="edu-item">
+							<span class="edu-period">2017 — 2023</span>
+							<div class="edu-details">
+								<div class="edu-school">重庆南开中学</div>
+								<div class="edu-major">高中 · Senior High School</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- ELSEWHERE -->
+			<section class="section">
+				<h2 class="section-title">Elsewhere</h2>
+				<div class="section-content">
+					<div class="links-grid">
+						<a href="https://github.com/cqnk2222" class="link-card">
+							<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 2A10 10 0 0 0 8.84 21.5c.5.08.66-.22.66-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.26-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.39.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.16.57.67.48A10 10 0 0 0 12 2Z"></path>
+							</svg>
+							GitHub
 						</a>
-					))}
+						<a href="mailto:your@email.com" class="link-card">
+							<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<rect x="3" y="5" width="18" height="14" rx="2"></rect>
+								<path d="m3 7 9 6 9-6"></path>
+							</svg>
+							Email
+						</a>
+						<a href="/rss.xml" class="link-card">
+							<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"></path>
+								<circle cx="5" cy="19" r="1.4" fill="currentColor"></circle>
+							</svg>
+							RSS
+						</a>
+					</div>
 				</div>
 			</section>
-
-			<section class="entry-grid">
-				<a class="entry-card" href="/notes">
-					<h2>Notes</h2>
-				</a>
-				<a class="entry-card" href="/essays">
-					<h2>Essays</h2>
-				</a>
-				<a class="entry-card" href="/projects">
-					<h2>Projects</h2>
-				</a>
-				<a class="entry-card" href="/links">
-					<h2>Links</h2>
-				</a>
-			</section>
-
-			<section class="recent-posts panel">
-				<div class="panel-heading">
-					<p class="eyebrow">Recent Posts</p>
-				</div>
-				<ul>
-					{latestPosts.map((post) => (
-						<li>
-							<a href={`/${post.collection}/${post.id}/`}>
-								<div>
-									<p class="meta">
-										{post.collection === 'notes' ? `${post.data.section} · ${post.data.chapter}` : 'Essay'}
-									</p>
-									<h3>{post.data.title}</h3>
-								</div>
-								<p class="meta"><FormattedDate date={post.data.pubDate} /></p>
-							</a>
-						</li>
-					))}
-				</ul>
-			</section>
-
 		</main>
+
 		<Footer />
 	</body>
 </html>
 
 <style>
-	.home-page {
-		width: min(1120px, calc(100% - 2rem));
-		margin: 0 auto;
-		padding: 3rem 0 4rem;
-	}
-
+	/* Hero Section */
 	.hero {
-		max-width: 42rem;
-		margin: 0 auto 2.75rem;
 		text-align: center;
-	}
-
-	.eyebrow,
-	.entry-label,
-	.meta {
-		margin: 0;
-		font-size: 0.92rem;
-		color: rgb(var(--gray));
-	}
-
-	.eyebrow,
-	.entry-label {
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		padding: 46px 24px 8px;
 	}
 
 	.avatar {
 		width: 128px;
 		height: 128px;
 		border-radius: 50%;
-		object-fit: cover;
-		object-position: center;
-		box-shadow: var(--box-shadow);
-		margin-bottom: 1rem;
+		margin: 0 auto 34px;
+		background: var(--avatar-gradient);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--bg-white);
+		font-weight: 700;
+		font-size: var(--text-hero-xl);
+		letter-spacing: -0.01em;
+		box-shadow: var(--shadow-avatar);
+		border: 5px solid var(--bg-white);
 	}
 
 	.hero h1 {
-		font-size: 2.3rem;
-		margin-bottom: 0.45rem;
-	}
-
-	.hero-meta {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		gap: 0.55rem;
-		margin: 0 0 1.5rem;
-		font-size: 0.98rem;
-		color: rgb(var(--gray));
-	}
-
-	.hero-meta a {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	.about-block {
-		margin: 0 auto;
-		max-width: 38rem;
-	}
-
-	.hero-copy {
-		max-width: 38rem;
-		margin: 0.45rem auto 0;
-		font-size: 1rem;
-		color: rgb(var(--gray-dark));
-	}
-
-	.education-panel {
-		margin-bottom: 1.5rem;
-		padding: 1.6rem 1.5rem;
-		border-radius: 24px;
-		background: rgba(255, 255, 255, 0.92);
-		border: 1px solid rgba(var(--gray), 0.16);
-		display: grid;
-		grid-template-columns: 180px 1fr;
-		gap: 1.5rem;
-	}
-
-	.section-head {
-		margin-bottom: 0;
-	}
-
-	.education-list {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1rem;
-	}
-
-	.education-item {
-		position: relative;
-		display: block;
-		overflow: hidden;
-		padding: 1.45rem 1.65rem;
-		text-decoration: none;
-		color: inherit;
-		border: 1px solid rgba(var(--gray), 0.2);
-		border-radius: 30px;
-		background: rgba(255, 255, 255, 0.82);
-		box-shadow: 0 10px 24px rgba(var(--black), 0.05);
-	}
-
-	.education-item:first-child {
-		padding-top: 1.45rem;
-	}
-
-	.education-watermark {
-		position: absolute;
-		right: -4.5rem;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 360px;
-		height: 360px;
-		opacity: 0.24;
-		pointer-events: none;
-		filter: saturate(0.9);
-	}
-
-	.education-copy {
-		min-width: 0;
-		position: relative;
-		z-index: 1;
-		max-width: 58%;
-	}
-
-	.education-item h2 {
-		font-size: 1.95rem;
-		margin: 0 0 0.28rem;
-		font-family: "FZFangSong-Z02", "STFangsong", "FangSong", "Songti SC", serif;
-		font-weight: 700;
-		color: var(--education-accent);
-	}
-
-	.education-item > div p {
 		margin: 0;
-		font-family: "FZFangSong-Z02", "STFangsong", "FangSong", "Songti SC", serif;
-		font-size: 1.08rem;
-		color: rgb(var(--gray-dark));
+		font-size: var(--text-hero-2xl);
+		letter-spacing: -0.02em;
+		color: var(--text-heading-dark);
+		line-height: var(--leading-tight);
 	}
 
-	.education-item .meta {
-		margin-bottom: 0.75rem;
-		font-size: 0.98rem;
-		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+	.name-zh {
+		font-family: var(--font-wenkai);
+		font-weight: 600;
+		letter-spacing: 0.02em;
 	}
 
-	.entry-grid {
+	.name-en {
+		font-family: var(--font-inter);
+		font-weight: 800;
+	}
+
+	.meta-info {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 38px;
+		margin-top: 26px;
+		font-size: var(--text-2xl);
+		font-weight: 500;
+		color: var(--text-secondary);
+	}
+
+	.location,
+	.github-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+	}
+
+	.github-link {
+		transition: color 0.2s ease;
+	}
+
+	.github-link:hover {
+		color: var(--nav-hover);
+	}
+
+	/* Main Content */
+	.main-content {
+		max-width: var(--max-width-content);
+		margin: 0 auto;
+		padding: 64px 40px 90px;
+	}
+
+	.section {
 		display: grid;
-		gap: 1.25rem;
+		grid-template-columns: var(--grid-label-width) 1fr;
+		gap: var(--grid-gap-main);
+		padding: 42px 0;
+		border-top: 1px solid var(--border-strong);
 	}
 
-	.entry-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		margin-bottom: 1.25rem;
+	.section-title {
+		margin: 0;
+		font-weight: 800;
+		font-size: var(--text-8xl);
+		letter-spacing: -0.02em;
+		color: var(--text-heading-dark);
 	}
 
-	.entry-card,
-	.panel {
-		border-radius: 24px;
-		background: rgba(255, 255, 255, 0.92);
-		border: 1px solid rgba(var(--gray), 0.16);
+	.section-content {
+		min-width: 0;
 	}
 
-	.entry-card {
-		padding: 1rem 1.2rem;
+	/* About Section */
+	.about-role {
+		font-size: var(--text-2xl);
+		font-weight: 500;
+		color: var(--about-subtitle);
+		margin-bottom: 22px;
+	}
+
+	.about-text {
+		margin: 0 0 28px;
+		font-size: var(--text-2xl);
+		line-height: var(--leading-body);
+		color: var(--text-body);
+		font-weight: 300;
+	}
+
+	.button-group {
+		display: flex;
+		align-items: center;
+		gap: 18px;
+		flex-wrap: wrap;
+	}
+
+	.button-outline {
+		font-size: var(--text-lg);
+		font-weight: 500;
+		color: var(--text-secondary);
 		text-decoration: none;
-		color: inherit;
+		border: 1px solid var(--border-button);
+		border-radius: var(--radius-lg);
+		padding: 8px 16px;
+		background: var(--bg-button);
+		white-space: nowrap;
+		transition: all 0.2s ease;
+	}
+
+	.button-outline:hover {
+		border-color: var(--nav-hover);
+		color: var(--nav-hover);
+	}
+
+	/* Posts Section */
+	.posts-list {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		min-height: 72px;
 	}
 
-	.entry-card h2 {
-		font-size: clamp(1.3rem, 2.2vw, 1.8rem);
-		margin: 0;
-		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-	}
-
-	.panel {
-		padding: 1.5rem;
-	}
-
-	.panel-heading {
+	.post-item {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-
-	.panel ul {
-		list-style: none;
-		padding: 0;
-		margin: 1rem 0 0;
-	}
-
-	.panel li a {
-		display: flex;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.8rem 0;
-		text-decoration: none;
-		color: inherit;
-		border-top: 1px solid rgba(var(--gray), 0.14);
-	}
-
-	.panel li:first-child a {
-		padding-top: 0;
-		border-top: none;
-	}
-
-	.panel h3 {
-		font-size: 0.98rem;
-		font-weight: 600;
-		margin: 0.18rem 0 0;
-	}
-
-	.panel p:last-child {
-		margin-bottom: 0;
-	}
-
-	.recent-posts {
-		margin-bottom: 1.25rem;
-	}
-
-	.recent-posts ul {
-		margin-top: 0.6rem;
-	}
-
-	.recent-posts li a {
 		align-items: baseline;
+		gap: 18px;
+		padding: 14px 0;
+		text-decoration: none;
+		border-bottom: 1px solid var(--border-weak-alt);
+		transition: background 0.2s ease;
 	}
 
-	.recent-posts .meta {
-		font-size: 0.84rem;
+	.post-item:hover {
+		background: var(--bg-hover);
 	}
 
-	.recent-posts p {
-		margin: 0;
+	.post-date {
+		font-family: var(--font-mono);
+		font-size: var(--text-base);
+		color: var(--post-meta);
+		flex-shrink: 0;
+		width: 74px;
 	}
 
-	@media (max-width: 1100px) {
-		.entry-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
+	.post-title {
+		flex: 1;
+		font-size: var(--text-2xl);
+		font-weight: 500;
+		color: var(--text-heading);
+		letter-spacing: -0.01em;
 	}
 
-	@media (max-width: 720px) {
-		.entry-grid {
-			grid-template-columns: 1fr;
-		}
+	.post-category {
+		font-size: var(--text-base);
+		font-weight: 500;
+		flex-shrink: 0;
 	}
 
-	@media (max-width: 900px) {
-		.entry-grid {
-			grid-template-columns: 1fr;
+	.more-link {
+		display: inline-block;
+		margin-top: 20px;
+		font-size: var(--text-lg);
+		font-weight: 500;
+		color: var(--notes-primary);
+		text-decoration: none;
+		transition: text-decoration 0.2s ease;
+	}
+
+	.more-link:hover {
+		text-decoration: underline;
+	}
+
+	/* Education Section */
+	.edu-list {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.edu-item {
+		display: flex;
+		align-items: baseline;
+		gap: 18px;
+		padding: 6px 0 18px;
+	}
+
+	.edu-item + .edu-item {
+		padding-top: 18px;
+		border-top: 1px solid var(--border-weak);
+	}
+
+	.edu-period {
+		font-family: var(--font-mono);
+		font-size: var(--text-base);
+		color: var(--post-meta);
+		flex-shrink: 0;
+		width: 150px;
+	}
+
+	.edu-details {
+		flex: 1;
+	}
+
+	.edu-school {
+		font-size: var(--text-2xl);
+		font-weight: 600;
+		color: var(--text-heading);
+	}
+
+	.edu-major {
+		font-size: var(--text-lg);
+		color: var(--text-tertiary);
+		margin-top: 3px;
+	}
+
+	/* Links Section */
+	.links-grid {
+		display: flex;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+
+	.link-card {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		font-size: var(--text-lg);
+		font-weight: 500;
+		color: var(--nav-text);
+		text-decoration: none;
+		border: 1px solid var(--border-button-alt);
+		border-radius: var(--radius-xl);
+		padding: 10px 16px;
+		background: var(--bg-button-alt);
+		transition: all 0.2s ease;
+	}
+
+	.link-card:hover {
+		border-color: var(--nav-hover);
+		color: var(--nav-hover);
+	}
+
+	/* Responsive */
+	@media (max-width: 768px) {
+		.hero {
+			padding: 32px 20px 8px;
 		}
 
-		.education-panel {
-			grid-template-columns: 1fr;
+		.avatar {
+			width: 96px;
+			height: 96px;
+			font-size: 32px;
+			margin-bottom: 24px;
 		}
 
-		.education-list {
-			grid-template-columns: 1fr;
+		.hero h1 {
+			font-size: 42px;
 		}
 
-		.education-copy {
-			max-width: 100%;
-		}
-
-		.education-item {
-			padding: 1.2rem 1.1rem;
-			border-radius: 22px;
-		}
-
-		.education-watermark {
-			width: 220px;
-			height: 220px;
-			right: -2.5rem;
-		}
-
-		.education-item h2 {
-			font-size: 1.45rem;
-		}
-
-		.panel li a {
+		.meta-info {
 			flex-direction: column;
+			gap: 16px;
+			font-size: 16px;
+		}
+
+		.main-content {
+			padding: 40px 24px 60px;
+		}
+
+		.section {
+			grid-template-columns: 1fr;
+			gap: 24px;
+			padding: 32px 0;
+		}
+
+		.edu-item {
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.edu-period {
+			width: 100%;
 		}
 	}
 </style>

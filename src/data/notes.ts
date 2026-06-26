@@ -21,55 +21,65 @@ export interface NoteSpaceLink {
 	href: string;
 }
 
-export const noteSpaces: NoteSpaceLink[] = [
-	{
-		title: '计算机网络',
-		href: 'https://bu-shi-mao-zhong-pian-ai-ju.gitbook.io/ji-suan-ji-wang-luo/',
-	},
-	{
-		title: '编译原理',
-		href: 'https://bu-shi-mao-zhong-pian-ai-ju.gitbook.io/bian-yi-yuan-li/',
-	},
-	{
-		title: '数据库概论CMU 15-445',
-		href: 'https://bu-shi-mao-zhong-pian-ai-ju.gitbook.io/shu-ju-ku-gai-lun-cmu-15445/',
-	},
-	{
-		title: 'About AI',
-		href: 'https://bu-shi-mao-zhong-pian-ai-ju.gitbook.io/about-ai/',
-	},
-	{
-		title: 'Rust',
-		href: 'https://bu-shi-mao-zhong-pian-ai-ju.gitbook.io/rust/',
-	},
-	{
-		title: 'AI Research',
-		href: 'https://bu-shi-mao-zhong-pian-ai-ju.gitbook.io/ai-research/',
-	},
-];
-
 export function sortNotes(notes: NoteEntry[]) {
 	return [...notes].sort((a, b) => {
-		if (a.data.section !== b.data.section) {
-			return a.data.section.localeCompare(b.data.section);
+		const sectionA = a.data.section ?? '';
+		const sectionB = b.data.section ?? '';
+		if (sectionA !== sectionB) {
+			return sectionA.localeCompare(sectionB);
 		}
-		return a.data.order - b.data.order;
+		return (a.data.order ?? 0) - (b.data.order ?? 0);
 	});
+}
+
+export interface NoteSeriesGroup {
+	series: string;
+	count: number;
+	firstNoteId: string;
+	notes: NoteEntry[];
+}
+
+/**
+ * 按 `series` 字段把笔记分组，每组按 `order` 排序。
+ * 用于 Notes 首页列出各系列，并链接到该系列第一篇。
+ */
+export function buildNoteSeries(notes: NoteEntry[]): NoteSeriesGroup[] {
+	const grouped = new Map<string, NoteEntry[]>();
+
+	for (const note of notes) {
+		const series = note.data.series ?? note.data.section ?? 'Notes';
+		const list = grouped.get(series) ?? [];
+		list.push(note);
+		grouped.set(series, list);
+	}
+
+	return Array.from(grouped.entries())
+		.map(([series, items]) => {
+			const sorted = items.sort((a, b) => (a.data.order ?? 0) - (b.data.order ?? 0));
+			return {
+				series,
+				count: sorted.length,
+				firstNoteId: sorted[0]?.id ?? '',
+				notes: sorted,
+			};
+		})
+		.sort((a, b) => a.series.localeCompare(b.series, 'zh-Hans-CN'));
 }
 
 export function buildNoteSections(notes: NoteEntry[]): NoteSectionGroup[] {
 	const grouped = new Map<string, NoteNavItem[]>();
 
 	for (const note of sortNotes(notes)) {
-		const list = grouped.get(note.data.section) ?? [];
+		const section = note.data.section ?? 'Notes';
+		const list = grouped.get(section) ?? [];
 		list.push({
 			id: note.id,
 			title: note.data.title,
-			chapter: note.data.chapter,
-			section: note.data.section,
+			chapter: note.data.chapter ?? '',
+			section,
 			fallbackUrl: `/notes/${note.id}/`,
 		});
-		grouped.set(note.data.section, list);
+		grouped.set(section, list);
 	}
 
 	return Array.from(grouped.entries()).map(([section, items]) => ({ section, items }));

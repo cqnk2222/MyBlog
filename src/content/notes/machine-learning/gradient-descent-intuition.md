@@ -3,11 +3,13 @@ title: 'Gradient Descent Intuition'
 description: 'A compact note on why gradient descent works, what the update rule means, and what to watch for in practice.'
 pubDate: '2026-03-27'
 section: 'Machine Learning'
-chapter: 'Optimization Basics'
+chapter: '01 · 梯度下降直觉'
+series: '机器学习基础'
 order: 1
+readingTime: '6 min read'
 tags:
   - optimization
-  - machine learning
+  - machine-learning
   - math
 ---
 

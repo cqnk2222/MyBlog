@@ -1,160 +1,171 @@
-/*
-  The CSS in this style tag is based off of Bear Blog's default CSS.
-  https://github.com/HermanMartinus/bearblog/blob/297026a877bc2ab2b3bdfbd6b9f7961c350917dd/templates/styles/blog/default.css
-  License MIT: https://github.com/HermanMartinus/bearblog/blob/master/LICENSE.md
- */
+/* 全局样式 - YangHao Blog 设计系统 */
 
-:root {
-	--accent: #1f4f46;
-	--accent-dark: #163a34;
-	--black: 20, 25, 28;
-	--gray: 98, 108, 116;
-	--gray-light: 228, 232, 229;
-	--gray-dark: 41, 49, 55;
-	--gray-gradient: rgba(240, 241, 236, 0.95), #f8f7f2;
-	--box-shadow:
-		0 8px 24px rgba(31, 45, 37, 0.08), 0 18px 40px rgba(31, 45, 37, 0.08);
+/* 引入 Design Tokens */
+@import './tokens.css';
+
+/* 字体引入 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css');
+
+/* 重置和基础样式 */
+* {
+  box-sizing: border-box;
 }
-@font-face {
-	font-family: "Atkinson";
-	src: url("/fonts/atkinson-regular.woff") format("woff");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-@font-face {
-	font-family: "Atkinson";
-	src: url("/fonts/atkinson-bold.woff") format("woff");
-	font-weight: 700;
-	font-style: normal;
-	font-display: swap;
-}
+
 body {
-	font-family: "Atkinson", sans-serif;
-	margin: 0;
-	padding: 0;
-	text-align: left;
-	background:
-		radial-gradient(circle at top left, rgba(206, 224, 215, 0.55), transparent 32%),
-		linear-gradient(180deg, #f7f7f2 0%, #f3f1e8 100%);
-	background-attachment: fixed;
-	word-wrap: break-word;
-	overflow-wrap: break-word;
-	color: rgb(var(--gray-dark));
-	font-size: 19px;
-	line-height: 1.7;
-}
-main {
-	width: 760px;
-	max-width: calc(100% - 2em);
-	margin: auto;
-	padding: 3em 1em;
-}
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	margin: 0 0 0.5rem 0;
-	color: rgb(var(--black));
-	line-height: 1.2;
-}
-h1 {
-	font-size: 3.052em;
-}
-h2 {
-	font-size: 2.441em;
-}
-h3 {
-	font-size: 1.953em;
-}
-h4 {
-	font-size: 1.563em;
-}
-h5 {
-	font-size: 1.25em;
-}
-strong,
-b {
-	font-weight: 700;
-}
-a {
-	color: var(--accent);
-	text-underline-offset: 0.18em;
-}
-a:hover {
-	color: var(--accent-dark);
-}
-p {
-	margin-bottom: 1em;
-}
-.prose p {
-	margin-bottom: 2em;
-}
-textarea {
-	width: 100%;
-	font-size: 16px;
-}
-input {
-	font-size: 16px;
-}
-table {
-	width: 100%;
-}
-img {
-	max-width: 100%;
-	height: auto;
-	border-radius: 8px;
-}
-code {
-	padding: 2px 5px;
-	background-color: rgba(var(--gray-light), 0.85);
-	border-radius: 4px;
-}
-pre {
-	padding: 1.5em;
-	border-radius: 14px;
-	background: #f0efe8;
-	overflow-x: auto;
-}
-pre > code {
-	all: unset;
-}
-blockquote {
-	border-left: 4px solid var(--accent);
-	padding: 0 0 0 20px;
-	margin: 0;
-	font-size: 1.15em;
-	color: rgb(var(--gray-dark));
-}
-hr {
-	border: none;
-	border-top: 1px solid rgba(var(--gray), 0.22);
-}
-@media (max-width: 720px) {
-	body {
-		font-size: 18px;
-	}
-	main {
-		padding: 1em;
-	}
+  margin: 0;
+  font-family: var(--font-stack);
+  color: var(--text-primary);
+  background: var(--bg-white);
 }
 
+/* 首页背景渐变 */
+body.home-page {
+  min-height: 100vh;
+  background: var(--page-gradient);
+}
+
+/* 链接默认样式 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 标题默认样式 */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-heading-dark);
+}
+
+/* 段落默认样式 */
+p {
+  margin: 0;
+}
+
+/* 列表默认样式 */
+ul, ol {
+  margin: 0;
+  padding: 0;
+}
+
+/* 按钮重置 */
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Code 样式 */
+code {
+  font-family: var(--font-mono);
+}
+
+/* 行内 code */
+:not(pre) > code {
+  font-size: var(--text-md);
+  background: var(--bg-code-light);
+  color: var(--notes-primary-dark);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+/* 代码块样式 */
+pre {
+  background: var(--code-bg);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin: 0 0 30px;
+  border: 1px solid var(--code-border);
+}
+
+pre code {
+  display: block;
+  padding: 18px 20px;
+  font-size: var(--text-base-plus);
+  line-height: 1.75;
+  color: var(--code-text);
+  overflow: auto;
+}
+
+/* Blockquote 样式 */
+blockquote {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* 强调文本 */
+strong {
+  font-weight: 600;
+}
+
+/* 图片响应式 */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Figure 样式 */
+figure {
+  margin: 0;
+}
+
+figcaption {
+  text-align: center;
+  font-family: var(--font-inter);
+  font-size: var(--text-base);
+  color: var(--text-meta);
+  margin-top: 12px;
+}
+
+/* 工具类 */
+.text-mono {
+  font-family: var(--font-mono);
+}
+
+.text-wenkai {
+  font-family: var(--font-wenkai);
+}
+
+.text-inter {
+  font-family: var(--font-inter);
+}
+
+/* 可访问性 */
 .sr-only {
-	border: 0;
-	padding: 0;
-	margin: 0;
-	position: absolute !important;
-	height: 1px;
-	width: 1px;
-	overflow: hidden;
-	/* IE6, IE7 - a 0 height clip, off to the bottom right of the visible 1px box */
-	clip: rect(1px 1px 1px 1px);
-	/* maybe deprecated but we need to support legacy browsers */
-	clip: rect(1px, 1px, 1px, 1px);
-	/* modern browsers, clip-path works inwards from each corner */
-	clip-path: inset(50%);
-	/* added line to stop words getting smushed together (as they go onto separate lines and some screen readers do not understand line feeds as a space */
-	white-space: nowrap;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* 响应式断点 */
+@media (max-width: 1100px) {
+  :root {
+    --max-width-header: 100%;
+    --max-width-content: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 100%;
+    --grid-gap-main: 32px;
+    --grid-label-width: 100%;
+  }
 }

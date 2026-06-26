@@ -39,6 +39,7 @@ export const profile = {
 	name: 'YangHao',
 	location: 'China / Beijing',
 	github: 'https://github.com/cqnk2222',
+	avatar: '/avatar.jpg',
 	intro:
 		"Hello, I'm YangHao, a computer science student at Peking University. I'm interested in large language models, literature, and building a thoughtful space for notes and writing.",
 };

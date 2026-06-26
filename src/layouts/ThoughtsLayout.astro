@@ -1,0 +1,258 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import FormattedDate from '../components/FormattedDate.astro';
+
+interface Props {
+	entry: CollectionEntry<'thoughts'>;
+}
+
+const { entry } = Astro.props;
+const { title, description, pubDate, tags = [] } = entry.data;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={title} description={description} />
+		<link rel="stylesheet" href="/src/styles/global.css" />
+	</head>
+	<body>
+		<Header />
+
+		<article class="thoughts-article">
+			<!-- 顶部色条 -->
+			<div class="top-bar"></div>
+
+			<!-- 面包屑导航 -->
+			<div class="breadcrumb">
+				<a href="/thoughts">← Thoughts</a>
+				<span class="category">thoughts</span>
+			</div>
+
+			<!-- 正文 -->
+			<div class="content">
+				<!-- 元信息 -->
+				<div class="meta-date">
+					THOUGHTS · <FormattedDate date={pubDate} format="YYYY-MM-DD" />
+				</div>
+
+				<!-- 标题 -->
+				<h1>{title}</h1>
+
+				<!-- 导语 standfirst -->
+				<p class="standfirst">{description}</p>
+
+				<!-- 正文内容 -->
+				<div class="prose">
+					<slot />
+				</div>
+
+				<!-- 标签 -->
+				{tags.length > 0 && (
+					<div class="tags-section">
+						{tags.map((tag) => (
+							<span class="tag">#{tag}</span>
+						))}
+					</div>
+				)}
+			</div>
+		</article>
+
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.thoughts-article {
+		background: var(--bg-white);
+		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-card);
+		overflow: hidden;
+		max-width: var(--max-width-thoughts);
+		margin: 3rem auto;
+		color: var(--text-primary);
+	}
+
+	.top-bar {
+		height: 4px;
+		background: var(--thoughts-primary);
+	}
+
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 20px 56px;
+		border-bottom: 1px solid var(--thoughts-border-alt);
+		font-size: var(--text-md);
+	}
+
+	.breadcrumb a {
+		color: #7a7186;
+		text-decoration: none;
+		font-weight: 500;
+		transition: color 0.2s ease;
+	}
+
+	.breadcrumb a:hover {
+		color: var(--thoughts-primary);
+	}
+
+	.category {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: #b6acc2;
+	}
+
+	.content {
+		padding: 52px 56px 60px;
+	}
+
+	.meta-date {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm-plus);
+		letter-spacing: 0.05em;
+		color: var(--thoughts-primary);
+		margin-bottom: 20px;
+	}
+
+	h1 {
+		margin: 0 0 26px;
+		font-weight: 800;
+		font-size: var(--text-hero-md);
+		letter-spacing: -0.02em;
+		line-height: var(--leading-normal);
+		color: var(--thoughts-heading);
+	}
+
+	/* 导语 */
+	.standfirst {
+		margin: 0 0 38px;
+		font-size: var(--text-5xl);
+		line-height: var(--leading-loose);
+		color: #463f52;
+		font-weight: 300;
+		font-family: var(--font-wenkai);
+		letter-spacing: 0.01em;
+	}
+
+	/* 正文样式 */
+	.prose {
+		font-size: var(--text-2xl);
+		line-height: var(--leading-body-xl);
+		color: var(--text-body);
+	}
+
+	.prose :global(h2),
+	.prose :global(h3) {
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		color: var(--thoughts-heading);
+		margin-top: 32px;
+		margin-bottom: 14px;
+	}
+
+	.prose :global(h2) {
+		font-size: var(--text-5xl);
+	}
+
+	.prose :global(h3) {
+		font-size: var(--text-3xl);
+	}
+
+	.prose :global(p) {
+		margin: 0 0 26px;
+	}
+
+	.prose :global(strong) {
+		font-weight: 600;
+	}
+
+	/* 高亮引述块 */
+	.prose :global(.highlight-quote) {
+		margin: 0 0 30px;
+		padding: 24px 28px;
+		background: linear-gradient(180deg, var(--thoughts-bg-light), var(--thoughts-bg-lighter));
+		border-radius: var(--radius-2xl);
+		border: 1px solid var(--thoughts-border);
+	}
+
+	.prose :global(.highlight-quote p) {
+		margin: 0;
+		font-size: var(--text-4xl);
+		line-height: var(--leading-loose);
+		color: var(--thoughts-text);
+		font-weight: 500;
+		font-family: var(--font-wenkai);
+		letter-spacing: 0.02em;
+	}
+
+	/* 也支持普通 blockquote */
+	.prose :global(blockquote) {
+		margin: 0 0 30px;
+		padding: 24px 28px;
+		background: linear-gradient(180deg, var(--thoughts-bg-light), var(--thoughts-bg-lighter));
+		border-radius: var(--radius-2xl);
+		border: 1px solid var(--thoughts-border);
+	}
+
+	.prose :global(blockquote p) {
+		margin: 0;
+		font-size: var(--text-4xl);
+		line-height: var(--leading-loose);
+		color: var(--thoughts-text);
+		font-weight: 500;
+		font-family: var(--font-wenkai);
+		letter-spacing: 0.02em;
+	}
+
+	/* 标签 */
+	.tags-section {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		flex-wrap: wrap;
+		margin-top: 40px;
+		padding-top: 26px;
+		border-top: 1px solid var(--thoughts-border-alt);
+	}
+
+	.tag {
+		font-size: var(--text-base);
+		color: var(--thoughts-text);
+		background: var(--thoughts-bg);
+		border-radius: var(--radius-full);
+		padding: 5px 13px;
+	}
+
+	@media (max-width: 768px) {
+		.thoughts-article {
+			margin: 2rem 1rem;
+		}
+
+		.breadcrumb,
+		.content {
+			padding: 20px 32px;
+		}
+
+		h1 {
+			font-size: 32px;
+		}
+
+		.standfirst {
+			font-size: 18px;
+		}
+
+		.prose {
+			font-size: 16px;
+		}
+
+		.prose :global(.highlight-quote p),
+		.prose :global(blockquote p) {
+			font-size: 18px;
+		}
+	}
+</style>

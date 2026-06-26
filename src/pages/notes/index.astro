@@ -3,26 +3,45 @@ import { getCollection } from 'astro:content';
 import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
-import { noteSpaces } from '../../data/notes';
+import { buildNoteSeries } from '../../data/notes';
+
+const allNotes = await getCollection('notes');
+const series = buildNoteSeries(allNotes);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 	<head>
-		<BaseHead title="Notes" description="Structured notes on AI courses, papers, and technical topics." />
+		<BaseHead title="Notes" description="课程 / 领域学习笔记，按系列组织。" />
 	</head>
-	<body>
+	<body class="home-page">
 		<Header />
 		<main class="notes-page">
-			<h1 class="page-title">Notes</h1>
-			<section class="notes-list">
-				{noteSpaces.map((space) => (
-					<article>
-						<a href={space.href} target="_blank" rel="noreferrer">
-							<h2>{space.title}</h2>
-							<p class="open-label">Open</p>
-						</a>
-					</article>
+			<header class="page-header">
+				<h1>Notes</h1>
+				<p class="page-intro">课程 / 领域学习笔记 · 按系列组织，可逐篇连读</p>
+			</header>
+
+			<section class="series-grid">
+				{series.map((group) => (
+					<a class="series-card" href={`/notes/${group.firstNoteId}/`}>
+						<div class="series-bar"></div>
+						<div class="series-body">
+							<h2 class="series-name">{group.series}</h2>
+							<p class="series-count">{group.count} 篇 · 持续更新</p>
+							<ul class="series-preview">
+								{group.notes.slice(0, 4).map((note) => (
+									<li>
+										<span class="preview-order">
+											{String(note.data.order ?? 0).padStart(2, '0')}
+										</span>
+										<span class="preview-title">{note.data.title}</span>
+									</li>
+								))}
+							</ul>
+							<span class="series-link">进入系列 →</span>
+						</div>
+					</a>
 				))}
 			</section>
 		</main>
@@ -32,54 +51,124 @@ import { noteSpaces } from '../../data/notes';
 
 <style>
 	.notes-page {
-		width: min(820px, calc(100% - 2rem));
+		max-width: var(--max-width-content);
 		margin: 0 auto;
-		padding: 2.4rem 0 4rem;
+		padding: 40px 40px 90px;
 	}
 
-	.page-title {
-		margin-bottom: 1.6rem;
-		font-size: 1.15rem;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: rgb(var(--gray));
+	.page-header {
+		padding: 24px 0 36px;
 	}
 
-	.notes-list {
+	.page-header h1 {
+		margin: 0 0 10px;
+		font-weight: 800;
+		font-size: var(--text-hero-sm);
+		letter-spacing: -0.02em;
+		color: var(--text-heading-dark);
+	}
+
+	.page-intro {
+		font-size: var(--text-2xl);
+		color: var(--text-secondary);
+		font-weight: 300;
+	}
+
+	.series-grid {
 		display: grid;
-		gap: 0;
+		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		gap: 22px;
 	}
 
-	.notes-list article {
-		border-top: 1px solid rgba(var(--gray), 0.18);
-	}
-
-	.notes-list a {
+	.series-card {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 1rem;
-		padding: 1rem 0;
-		color: inherit;
+		flex-direction: column;
+		background: var(--bg-white);
+		border-radius: var(--radius-xl);
+		box-shadow: var(--shadow-card);
+		overflow: hidden;
 		text-decoration: none;
+		color: inherit;
+		transition:
+			transform 0.18s ease,
+			box-shadow 0.18s ease;
 	}
 
-	h2 {
-		margin: 0;
-		font-size: clamp(1rem, 1.45vw, 1.12rem);
-		font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-		line-height: 1.25;
+	.series-card:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 6px 20px rgba(31, 123, 191, 0.15);
 	}
 
-	.open-label {
-		margin: 0;
-		font-size: 0.9rem;
-		color: rgb(var(--gray));
+	.series-bar {
+		height: 4px;
+		background: var(--notes-primary);
 	}
 
-	@media (max-width: 720px) {
-		.notes-list a {
-			align-items: flex-start;
+	.series-body {
+		padding: 24px 26px 26px;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+	}
+
+	.series-name {
+		margin: 0 0 6px;
+		font-weight: 700;
+		font-size: var(--text-5xl);
+		letter-spacing: -0.01em;
+		color: var(--text-heading);
+	}
+
+	.series-count {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--post-meta);
+		margin-bottom: 18px;
+	}
+
+	.series-preview {
+		list-style: none;
+		margin: 0 0 18px;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		flex: 1;
+	}
+
+	.series-preview li {
+		display: flex;
+		gap: 11px;
+		font-size: var(--text-lg);
+		color: var(--text-secondary);
+	}
+
+	.preview-order {
+		font-family: var(--font-mono);
+		color: var(--text-meta-light);
+		flex-shrink: 0;
+	}
+
+	.preview-title {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.series-link {
+		font-size: var(--text-lg);
+		font-weight: 600;
+		color: var(--notes-primary);
+	}
+
+	@media (max-width: 768px) {
+		.notes-page {
+			padding: 24px 24px 60px;
+		}
+
+		.series-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

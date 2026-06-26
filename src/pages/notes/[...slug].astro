@@ -1,7 +1,6 @@
 ---
 import { type CollectionEntry, getCollection, render } from 'astro:content';
-import { buildNoteSections, getAdjacentNotes } from '../../data/notes';
-import WritingLayout from '../../layouts/WritingLayout.astro';
+import NotesLayout from '../../layouts/NotesLayout.astro';
 
 export async function getStaticPaths() {
 	const notes = await getCollection('notes');
@@ -15,29 +14,22 @@ type Props = CollectionEntry<'notes'>;
 
 const note = Astro.props;
 const allNotes = await getCollection('notes');
-const noteSections = buildNoteSections(allNotes);
-const { previous, next } = getAdjacentNotes(allNotes, note.id);
 
-const { Content, headings } = await render(note);
+// 获取同一系列的笔记
+const seriesNotes = note.data.series
+	? allNotes
+		.filter((n) => n.data.series === note.data.series)
+		.sort((a, b) => (a.data.order || 0) - (b.data.order || 0))
+	: [];
+
+// 获取上一篇和下一篇
+const currentIndex = seriesNotes.findIndex((n) => n.id === note.id);
+const prevNote = currentIndex > 0 ? seriesNotes[currentIndex - 1] : undefined;
+const nextNote = currentIndex >= 0 && currentIndex < seriesNotes.length - 1 ? seriesNotes[currentIndex + 1] : undefined;
+
+const { Content } = await render(note);
 ---
 
-<WritingLayout
-	variant="note"
-	sidebarMode="edge"
-	noteSections={noteSections}
-	headings={headings}
-	currentSlug={note.id}
-	previousNote={
-		previous
-			? { id: previous.id, title: previous.data.title, chapter: previous.data.chapter }
-			: undefined
-	}
-	nextNote={
-		next
-			? { id: next.id, title: next.data.title, chapter: next.data.chapter }
-			: undefined
-	}
-	{...note.data}
->
+<NotesLayout entry={note} seriesNotes={seriesNotes} prevNote={prevNote} nextNote={nextNote}>
 	<Content />
-</WritingLayout>
+</NotesLayout>
