@@ -1,0 +1,441 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE } from '../../consts';
+
+// 分组顺序就是这里的书写顺序
+const KIND_META = {
+	blog: { label: '个人博客', en: 'Blogs' },
+	newsletter: { label: 'Newsletter', en: 'Newsletters' },
+	group: { label: '研究团队', en: 'Research Groups' },
+	lab: { label: 'AI Lab', en: 'Labs' },
+	friend: { label: '友链', en: 'Friends' },
+};
+
+const entries = await getCollection('following');
+
+// 正文（「为什么关注」）跟条目一起渲染，不单独出详情页
+const rendered = await Promise.all(
+	entries.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
+);
+
+const groups = Object.entries(KIND_META)
+	.map(([kind, meta]) => ({
+		kind,
+		...meta,
+		items: rendered
+			.filter((item) => item.entry.data.kind === kind)
+			.sort(
+				(a, b) =>
+					b.entry.data.addedDate.valueOf() - a.entry.data.addedDate.valueOf() ||
+					a.entry.data.name.localeCompare(b.entry.data.name, 'zh-Hans-CN'),
+			),
+	}))
+	.filter((group) => group.items.length > 0);
+
+const allTags = [...new Set(entries.flatMap((entry) => entry.data.tags))].sort();
+const feedCount = entries.filter((entry) => entry.data.rss).length;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={`Following - ${SITE_TITLE}`} description="我在关注的博客、研究团队和 AI Lab。" />
+		<link rel="stylesheet" href="/src/styles/global.css" />
+	</head>
+	<body>
+		<Header />
+
+		<main class="following-index">
+			<section class="hero">
+				<p class="eyebrow">Following</p>
+				<h1>我在关注的人和团队</h1>
+				<p class="intro">
+					博客、研究团队、AI Lab。放在这里是为了自己回头找得到，也顺便说清楚每一个我在看什么。
+				</p>
+				<p class="stats">
+					{entries.length} 个来源 · {feedCount} 个有 RSS · 最近添加的排在前面
+				</p>
+			</section>
+
+			{allTags.length > 0 && (
+				<div class="filters" id="filters">
+					<button class="filter is-active" type="button" data-tag="all">全部</button>
+					{allTags.map((tag) => (
+						<button class="filter" type="button" data-tag={tag}>#{tag}</button>
+					))}
+				</div>
+			)}
+
+			<div class="groups">
+				{groups.map((group) => (
+					<section class="group" data-group>
+						<header class="group-head">
+							<h2>{group.label}</h2>
+							<span class="group-en">{group.en}</span>
+							<span class="group-count">{group.items.length}</span>
+						</header>
+
+						<div class="cards">
+							{group.items.map(({ entry, Content }) => (
+								<article class="card" data-tags={entry.data.tags.join(',')}>
+									<div class="card-head">
+										<h3>
+											<a href={entry.data.url} target="_blank" rel="noreferrer noopener">
+												{entry.data.name}<span class="arrow" aria-hidden="true">↗</span>
+											</a>
+										</h3>
+										{!entry.data.active && <span class="badge-inactive">已停更</span>}
+									</div>
+
+									{entry.data.org && <p class="org">{entry.data.org}</p>}
+
+									<div class="note">
+										<Content />
+									</div>
+
+									{(entry.data.tags.length > 0 || entry.data.rss) && (
+									<footer class="card-foot">
+										<div class="tags">
+											{entry.data.tags.map((tag) => (
+												<span class="tag">#{tag}</span>
+											))}
+										</div>
+										{entry.data.rss && (
+											<a class="rss" href={entry.data.rss} target="_blank" rel="noreferrer noopener" title="RSS 订阅">
+												<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+													<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"></path>
+													<circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"></circle>
+												</svg>
+												RSS
+											</a>
+										)}
+									</footer>
+									)}
+								</article>
+							))}
+						</div>
+					</section>
+				))}
+			</div>
+
+			<p class="empty" id="empty" hidden>这个标签下暂时没有条目。</p>
+		</main>
+
+		<Footer />
+
+		<script>
+			const filters = document.querySelectorAll('#filters .filter');
+			const cards = document.querySelectorAll('.card[data-tags]');
+			const groups = document.querySelectorAll('[data-group]');
+			const empty = document.getElementById('empty');
+
+			for (const button of filters) {
+				button.addEventListener('click', () => {
+					const { tag } = button.dataset;
+
+					for (const other of filters) other.classList.toggle('is-active', other === button);
+
+					for (const card of cards) {
+						const tags = (card.dataset.tags || '').split(',').filter(Boolean);
+						card.hidden = tag !== 'all' && !tags.includes(tag);
+					}
+
+					// 组里一条都不剩就把整组标题也收起来
+					for (const group of groups) {
+						group.hidden = ![...group.querySelectorAll('.card[data-tags]')].some((card) => !card.hidden);
+					}
+
+					if (empty) empty.hidden = [...groups].some((group) => !group.hidden);
+				});
+			}
+		</script>
+	</body>
+</html>
+
+<style>
+	/* 卡片和分组会被脚本用 hidden 开关，作者样式里的 display 会盖掉 UA 的 [hidden] */
+	[hidden] {
+		display: none !important;
+	}
+
+	.following-index {
+		max-width: var(--max-width-notes);
+		margin: 0 auto;
+		padding: 3.5rem 2rem 4.5rem;
+	}
+
+	/* 头部 */
+	.eyebrow {
+		margin: 0 0 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--following-primary);
+	}
+
+	h1 {
+		margin: 0 0 16px;
+		font-size: var(--text-hero-sm);
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		line-height: var(--leading-snug);
+		color: var(--following-heading);
+	}
+
+	.intro {
+		margin: 0 0 10px;
+		max-width: 620px;
+		font-size: var(--text-xl);
+		font-weight: 300;
+		line-height: var(--leading-looser);
+		color: var(--text-secondary);
+	}
+
+	.stats {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm-plus);
+		color: var(--text-meta);
+	}
+
+	/* 标签筛选 */
+	.filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin: 30px 0 8px;
+		padding-bottom: 22px;
+		border-bottom: 1px solid var(--border-weak);
+	}
+
+	.filter {
+		padding: 5px 13px;
+		border: 1px solid var(--border-button-alt);
+		border-radius: var(--radius-pill);
+		background: var(--bg-white);
+		color: var(--text-tertiary);
+		font-size: var(--text-md);
+		cursor: pointer;
+		transition:
+			border-color 0.18s ease,
+			background 0.18s ease,
+			color 0.18s ease;
+	}
+
+	.filter:hover {
+		border-color: var(--following-primary);
+		color: var(--following-primary-dark);
+	}
+
+	.filter.is-active {
+		background: var(--following-bg);
+		border-color: var(--following-border);
+		color: var(--following-primary-dark);
+		font-weight: 600;
+	}
+
+	/* 分组 */
+	.groups {
+		display: flex;
+		flex-direction: column;
+		gap: 44px;
+		margin-top: 36px;
+	}
+
+	.group-head {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		margin-bottom: 18px;
+	}
+
+	.group-head h2 {
+		margin: 0;
+		font-size: var(--text-5xl);
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		color: var(--text-heading);
+	}
+
+	.group-en {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-meta-light);
+	}
+
+	.group-count {
+		margin-left: auto;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--text-meta-light);
+	}
+
+	/* 卡片 */
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		gap: 16px;
+	}
+
+	.card {
+		display: flex;
+		flex-direction: column;
+		padding: 20px 22px;
+		border: 1px solid var(--border-weak);
+		border-radius: var(--radius-xl);
+		background: var(--bg-white);
+		transition:
+			border-color 0.18s ease,
+			box-shadow 0.18s ease;
+	}
+
+	.card:hover {
+		border-color: var(--following-border);
+		box-shadow: 0 4px 14px rgba(47, 138, 114, 0.09);
+	}
+
+	.card-head {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.card-head h3 {
+		margin: 0;
+		font-size: var(--text-3xl);
+		font-weight: 700;
+		line-height: var(--leading-relaxed);
+	}
+
+	.card-head a {
+		color: var(--following-heading);
+		text-decoration: none;
+	}
+
+	.card-head a:hover {
+		color: var(--following-primary-dark);
+	}
+
+	.arrow {
+		display: inline-block;
+		margin-left: 5px;
+		font-size: var(--text-md);
+		color: var(--text-meta-light);
+		transition: transform 0.18s ease;
+	}
+
+	.card-head a:hover .arrow {
+		transform: translate(2px, -2px);
+		color: var(--following-primary);
+	}
+
+	.badge-inactive {
+		flex-shrink: 0;
+		padding: 2px 9px;
+		border-radius: var(--radius-pill);
+		background: var(--bg-tag);
+		font-size: var(--text-xs);
+		color: var(--text-meta);
+	}
+
+	.org {
+		margin: 5px 0 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm-plus);
+		color: var(--text-meta);
+	}
+
+	.note {
+		margin-top: 12px;
+		font-size: var(--text-lg);
+		line-height: var(--leading-loose);
+		color: var(--text-body);
+	}
+
+	.note :global(p) {
+		margin: 0 0 8px;
+	}
+
+	.note :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.note :global(a) {
+		color: var(--following-primary-dark);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.note :global(code) {
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: var(--bg-code-light);
+		font-size: 0.9em;
+	}
+
+	.card-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: auto;
+		padding-top: 16px;
+	}
+
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.tag {
+		padding: 3px 10px;
+		border-radius: var(--radius-pill);
+		background: var(--following-bg-light);
+		font-size: var(--text-sm);
+		color: var(--following-text);
+	}
+
+	.rss {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.04em;
+		color: var(--text-meta-light);
+		text-decoration: none;
+	}
+
+	.rss:hover {
+		color: var(--following-primary);
+	}
+
+	.empty {
+		margin: 40px 0 0;
+		text-align: center;
+		color: var(--text-meta);
+		font-size: var(--text-lg);
+	}
+
+	@media (max-width: 768px) {
+		.following-index {
+			padding: 2rem 1.5rem 3rem;
+		}
+
+		h1 {
+			font-size: 28px;
+		}
+
+		.cards {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>

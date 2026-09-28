@@ -1,5 +1,9 @@
 # Astro Starter Kit: Blog
 
+> 写笔记不用手写 Markdown 文件：`npm run dev` 后打开 <http://localhost:4321/editor>，
+> 表单填 frontmatter、实时预览、一键提交发布。说明见 [src/editor/README.md](src/editor/README.md)。
+> 这个写作台只在 dev 下存在，不会进构建产物。
+
 ```sh
 npm create astro@latest -- --template blog
 ```

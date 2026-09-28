@@ -25,23 +25,16 @@ export const projects = [
 	},
 ];
 
-export const myLinks = [
-	{ label: 'GitHub', href: 'https://github.com/cqnk2222', description: 'Code, experiments, and project repositories.' },
-	{ label: 'Site', href: 'https://kk2222.ink', description: 'Notes, essays, and project updates.' },
-	{ label: 'RSS', href: '/rss.xml', description: 'Follow new posts through your reader.' },
-];
-
-export const friendLinks = [
-	{ label: 'Add your first friend link', href: '#', description: 'Replace this placeholder with a real site you want to recommend.' },
-];
+// myLinks / friendLinks 已随 /links 页面移除：
+// 前者首页 Elsewhere 区块已有，后者改成 src/content/following/ 里 kind: 'friend' 的条目。
 
 export const profile = {
-	name: 'YangHao',
+	name: 'Krinein Hao',
 	location: 'China / Beijing',
 	github: 'https://github.com/cqnk2222',
 	avatar: '/avatar.jpg',
 	intro:
-		"Hello, I'm YangHao, a computer science student at Peking University. I'm interested in large language models, literature, and building a thoughtful space for notes and writing.",
+		"Hello, I'm Krinein Hao, a computer science student at Peking University. I'm interested in large language models, literature, and building a thoughtful space for notes and writing.",
 };
 
 export const education = [

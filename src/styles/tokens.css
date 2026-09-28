@@ -43,6 +43,16 @@
   --thoughts-border: #ece5f3;
   --thoughts-border-alt: #f0edf3;
 
+  /* Following 青绿色系统 */
+  --following-primary: #2f8a72;
+  --following-primary-dark: #26705d;
+  --following-text: #3a6b5e;
+  --following-heading: #14211d;
+  --following-bg: #e9f4f1;
+  --following-bg-light: #f1f8f6;
+  --following-bg-lighter: #f7fbfa;
+  --following-border: #cfe6df;
+
   /* 头像和渐变 */
   --avatar-gradient: linear-gradient(145deg, #2b86c4, #16b6c6);
   --page-gradient: linear-gradient(180deg, #d4e1ea 0%, #e3ebf1 30%, #f3f6f8 62%, #f7f9fb 100%);
@@ -101,6 +111,7 @@
   --text-md-plus: 14.5px;
   --text-lg: 15px;
   --text-lg-plus: 15.5px;
+  --text-prose: 16px; /* 技术笔记正文，比 --text-xl 紧一档 */
   --text-xl: 17px;
   --text-2xl: 18px;
   --text-3xl: 20px;
@@ -110,6 +121,7 @@
   --text-7xl: 24px;
   --text-8xl: 26px;
   --text-9xl: 28px;
+  --text-hero-xs: 32px;
   --text-hero-sm: 36px;
   --text-hero-md: 40px;
   --text-hero-lg: 44px;
@@ -131,9 +143,9 @@
   --max-width-header: 1080px;
   --max-width-essay: 800px;
   --max-width-thoughts: 820px;
-  --max-width-notes: 1040px;
+  --max-width-notes: 1180px;
 
-  --sidebar-width: 252px;
+  --sidebar-width: 240px;
   --grid-gap-main: 56px;
   --grid-label-width: 140px;
 

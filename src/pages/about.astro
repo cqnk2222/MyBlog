@@ -2,82 +2,114 @@
 import BaseHead from '../components/BaseHead.astro';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import { SITE_TITLE } from '../consts';
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 	<head>
-		<BaseHead title="About" description="About YangHao and the purpose of this site." />
+		<BaseHead
+			title={`About - ${SITE_TITLE}`}
+			description="A long-term workspace for learning in public. 墨干了，字便不再属于我。"
+		/>
 	</head>
 	<body>
 		<Header />
+
 		<main class="about-page">
-			<section class="intro">
-				<p class="eyebrow">About</p>
-				<h1>Building a small home for notes, essays, and projects.</h1>
-				<p>
-					I am an AI student using this site as a long-term workspace for learning in public. Some
-					sections are meant to be practical and structured, others are deliberately slower and more
-					personal.
+			<h1 class="eyebrow">About</h1>
+
+			<section class="block" lang="en">
+				<p class="statement">
+					A long-term workspace for learning in public. I keep it because understanding fades faster
+					than I'd like, and writing is the slowest, most reliable way I know to hold on to it.
 				</p>
 			</section>
-			<section class="about-grid">
-				<article>
-					<h2>What this site is for</h2>
-					<p>
-						Notes hold technical material that I want to revisit later. Essays are for personal
-						reflection and writing that does not fit a handbook format. Projects track what I am building.
-					</p>
-				</article>
-				<article>
-					<h2>What I am studying</h2>
-					<p>
-						My current focus is AI-related coursework, paper reading, and implementation details. I care
-						most about understanding ideas well enough to explain and reproduce them.
-					</p>
-				</article>
-				<article>
-					<h2>How I want the site to feel</h2>
-					<p>
-						Clear structure for notes, minimal reading experience for essays, and compact navigation for
-						projects and links. The goal is not volume. The goal is reusability.
-					</p>
-				</article>
+
+			<section class="block">
+				<p class="line line-dry">墨干了，字便不再属于我。</p>
+				<p class="line line-wet">这里存着的，是还没干透的东西。</p>
 			</section>
 		</main>
+
 		<Footer />
 	</body>
 </html>
 
 <style>
 	.about-page {
-		width: min(960px, calc(100% - 2rem));
+		max-width: var(--max-width-essay);
 		margin: 0 auto;
-		padding: 3rem 0 4rem;
-	}
-
-	.intro {
-		max-width: 48rem;
-		margin-bottom: 2.5rem;
+		padding: 4.5rem 2rem 6rem;
 	}
 
 	.eyebrow {
 		margin: 0;
-		font-size: 0.92rem;
-		color: rgb(var(--gray));
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 400;
+		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		color: var(--text-meta);
 	}
 
-	.about-grid {
-		display: grid;
-		gap: 1.25rem;
+	.block {
+		padding: 44px 0;
 	}
 
-	.about-grid article {
-		padding: 1.5rem;
-		border-radius: 24px;
-		background: rgba(255, 255, 255, 0.92);
-		border: 1px solid rgba(var(--gray), 0.16);
+	/* 分隔线向右淡出，呼应「墨会干」 */
+	.block + .block {
+		border-top: 1px solid transparent;
+		border-image: linear-gradient(90deg, var(--border-strong), transparent) 1;
+	}
+
+	/* 英文 */
+	.statement {
+		margin: 0;
+		max-width: 46ch;
+		font-family: var(--font-inter);
+		font-size: var(--text-3xl);
+		font-weight: 300;
+		line-height: var(--leading-body);
+		letter-spacing: -0.005em;
+		color: var(--text-body);
+	}
+
+	/* 中文 */
+	.line {
+		margin: 0;
+		font-family: var(--font-wenkai);
+		font-size: var(--text-5xl);
+		line-height: var(--leading-body-xl);
+		letter-spacing: 0.02em;
+	}
+
+	/* 干了的那句淡下去，没干透的那句才是浓墨 */
+	.line-dry {
+		color: var(--essays-body);
+		opacity: 0.5;
+	}
+
+	.line-wet {
+		color: var(--essays-body);
+	}
+
+	@media (max-width: 768px) {
+		.about-page {
+			padding: 2rem 1.5rem 3.5rem;
+		}
+
+		.block {
+			padding: 28px 0;
+		}
+
+		.statement {
+			max-width: none;
+			font-size: var(--text-2xl);
+		}
+
+		.line {
+			font-size: var(--text-3xl);
+		}
 	}
 </style>

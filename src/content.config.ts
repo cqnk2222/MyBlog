@@ -46,4 +46,24 @@ const thoughts = defineCollection({
 		}),
 });
 
-export const collections = { notes, essays, thoughts };
+/**
+ * 我在关注的博客 / 研究团队 / AI Lab。
+ * 每条一个文件，正文写 1~3 句「为什么关注」，全部渲染在 /following 一个页面上，
+ * 不生成单条详情页。
+ */
+const following = defineCollection({
+	loader: glob({ base: './src/content/following', pattern: '**/*.{md,mdx}' }),
+	schema: () =>
+		z.object({
+			name: z.string(),
+			url: z.string().url(),
+			kind: z.enum(['blog', 'group', 'lab', 'newsletter', 'friend']),
+			org: z.string().optional(), // 所属机构，个人博客一般留空
+			tags: z.array(z.string()).default([]),
+			rss: z.string().url().optional(),
+			addedDate: z.coerce.date(),
+			active: z.boolean().default(true), // false = 已停更，但还想留个记录
+		}),
+});
+
+export const collections = { notes, essays, thoughts, following };

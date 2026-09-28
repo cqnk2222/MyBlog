@@ -4,6 +4,8 @@ import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import FormattedDate from '../components/FormattedDate.astro';
+import NoteTree from '../components/NoteTree.astro';
+import { buildNoteTree } from '../data/notes';
 
 interface Props {
 	entry: CollectionEntry<'notes'>;
@@ -18,6 +20,7 @@ const { title, description, pubDate, section, chapter, series, tags = [], readin
 // 获取系列信息
 const seriesTitle = series || section || 'Notes';
 const seriesCount = seriesNotes.length;
+const noteTree = buildNoteTree(seriesNotes, entry.id);
 ---
 
 <!doctype html>
@@ -45,31 +48,49 @@ const seriesCount = seriesNotes.length;
 			</div>
 
 			<div class="article-layout">
-				<!-- 侧栏 -->
-				<aside class="sidebar">
+				<aside id="notes-sidebar" class="sidebar">
+					<div class="sidebar-topbar">
+						<button
+							id="notes-sidebar-toggle"
+							class="sidebar-toggle"
+							type="button"
+							aria-label="Hide sidebar"
+							title="Hide sidebar"
+							aria-expanded="true"
+							aria-controls="notes-sidebar"
+						>
+							<span aria-hidden="true">‹</span>
+						</button>
+					</div>
+
 					<div class="series-label">系列 · Series</div>
 					<div class="series-title">{seriesTitle}</div>
-					{seriesCount > 0 && (
-						<div class="series-meta">{seriesCount} 篇 · 持续更新</div>
-					)}
+					{seriesCount > 0 && <div class="series-meta">{seriesCount} 篇 · 持续更新</div>}
 
-					{seriesNotes.length > 0 && (
-						<nav class="series-nav">
-							{seriesNotes.map((note) => (
-								<a
-									href={`/notes/${note.id}/`}
-									class:list={['nav-item', { active: note.id === entry.id }]}
-								>
-									<span class="nav-order">{String(note.data.order || 0).padStart(2, '0')}</span>
-									<span class="nav-title">{note.data.title}</span>
-								</a>
-							))}
+					{noteTree.length > 0 && (
+						<nav class="series-nav" aria-label={`${seriesTitle} notes`}>
+							<NoteTree nodes={noteTree} />
 						</nav>
 					)}
 				</aside>
 
 				<!-- 正文 -->
 				<div class="content">
+					<div class="content-toolbar">
+						<button
+							id="notes-sidebar-toggle-inline"
+							class="sidebar-toggle inline-toggle"
+							type="button"
+							aria-label="Show sidebar"
+							title="Show sidebar"
+							aria-expanded="false"
+							aria-controls="notes-sidebar"
+							hidden
+						>
+							<span aria-hidden="true">☰</span>
+						</button>
+					</div>
+
 					<!-- 元信息 -->
 					<div class="meta-info">
 						{section && <span class="category">{section}</span>}
@@ -110,7 +131,7 @@ const seriesCount = seriesNotes.length;
 							{prevNote ? (
 								<a href={`/notes/${prevNote.id}/`} class="page-link prev">
 									<div class="page-label">← 上一篇</div>
-									<div class="page-title">{prevNote.data.chapter || prevNote.data.title}</div>
+									<div class="page-title">{prevNote.data.title}</div>
 								</a>
 							) : (
 								<div></div>
@@ -118,7 +139,7 @@ const seriesCount = seriesNotes.length;
 							{nextNote && (
 								<a href={`/notes/${nextNote.id}/`} class="page-link next">
 									<div class="page-label">下一篇 →</div>
-									<div class="page-title">{nextNote.data.chapter || nextNote.data.title}</div>
+									<div class="page-title">{nextNote.data.title}</div>
 								</a>
 							)}
 						</nav>
@@ -128,16 +149,67 @@ const seriesCount = seriesNotes.length;
 		</article>
 
 		<Footer />
+		<script is:inline>
+			const root = document.documentElement;
+			const sidebar = document.getElementById('notes-sidebar');
+			const button = document.getElementById('notes-sidebar-toggle');
+			const inlineButton = document.getElementById('notes-sidebar-toggle-inline');
+			const storageKey = 'notes-sidebar-collapsed';
+
+			const applyCollapsed = (collapsed) => {
+				root.classList.toggle('notes-sidebar-collapsed', collapsed);
+				if (sidebar) sidebar.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+				if (button) {
+					button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+				}
+				if (inlineButton) {
+					inlineButton.hidden = !collapsed;
+					inlineButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+				}
+			};
+
+			applyCollapsed(localStorage.getItem(storageKey) === 'true');
+
+			button?.addEventListener('click', () => {
+				const next = !root.classList.contains('notes-sidebar-collapsed');
+				localStorage.setItem(storageKey, String(next));
+				applyCollapsed(next);
+			});
+
+			inlineButton?.addEventListener('click', () => {
+				localStorage.setItem(storageKey, 'false');
+				applyCollapsed(false);
+			});
+
+			// 展开/收起全部交给 CSS（.tree-panel 的 grid-template-rows 动画），
+			// 这里只负责翻转状态，不需要测量高度，所以嵌套多少层都不会算错。
+			for (const group of document.querySelectorAll('[data-note-group]')) {
+				const toggle = group.querySelector('[data-note-toggle]');
+				const panel = group.querySelector('[data-note-panel]');
+				if (!(toggle instanceof HTMLElement) || !(panel instanceof HTMLElement)) continue;
+
+				toggle.addEventListener('click', () => {
+					const expanded = toggle.getAttribute('aria-expanded') === 'true';
+					toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+					panel.classList.toggle('open', !expanded);
+				});
+			}
+		</script>
 	</body>
 </html>
 
 <style>
+	:global(html.notes-sidebar-collapsed) .sidebar {
+		display: none;
+	}
+
 	.notes-article {
 		background: var(--bg-white);
 		border-radius: var(--radius-card);
 		box-shadow: var(--shadow-card);
 		overflow: hidden;
-		max-width: var(--max-width-notes);
+		/* 减去左右留白，卡片变宽后在中间宽度区间不会顶到屏幕边缘 */
+		max-width: min(var(--max-width-notes), calc(100% - 3rem));
 		margin: 3rem auto;
 		color: var(--text-primary);
 	}
@@ -190,7 +262,45 @@ const seriesCount = seriesNotes.length;
 		flex-shrink: 0;
 		border-right: 1px solid var(--border-weak);
 		background: var(--bg-sidebar);
-		padding: 30px 22px;
+		padding: 22px 18px 30px;
+	}
+
+	.sidebar-topbar {
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: 14px;
+	}
+
+	.sidebar-toggle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 30px;
+		height: 30px;
+		border: 1px solid var(--border-button);
+		border-radius: var(--radius-pill);
+		background: var(--bg-button);
+		color: var(--text-tertiary);
+		font-size: var(--text-xl);
+		line-height: 1;
+		transition:
+			border-color 0.18s ease,
+			background 0.18s ease,
+			color 0.18s ease;
+	}
+
+	.sidebar-toggle:hover {
+		border-color: var(--notes-primary);
+		background: var(--notes-bg-lighter);
+		color: var(--notes-primary-dark);
+	}
+
+	.inline-toggle {
+		margin-bottom: 16px;
+	}
+
+	.inline-toggle[hidden] {
+		display: none;
 	}
 
 	.series-label {
@@ -217,47 +327,14 @@ const seriesCount = seriesNotes.length;
 	}
 
 	.series-nav {
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-	}
-
-	.nav-item {
-		display: flex;
-		gap: 11px;
-		padding: 9px 12px;
-		border-radius: var(--radius-md);
-		text-decoration: none;
-		font-size: var(--text-md-plus);
-		color: var(--text-secondary);
-		transition: background 0.2s ease;
-	}
-
-	.nav-item:hover {
-		background: #f0f4f7;
-	}
-
-	.nav-item.active {
-		color: var(--notes-primary-dark);
-		font-weight: 600;
-		background: var(--notes-bg-light);
-		border-left: 3px solid var(--notes-primary);
-	}
-
-	.nav-order {
-		font-family: var(--font-mono);
-		color: var(--text-meta-light);
-	}
-
-	.nav-item.active .nav-order {
-		color: #7fb2db;
+		margin-top: 4px;
 	}
 
 	/* 正文 */
 	.content {
 		flex: 1;
 		min-width: 0;
-		padding: 42px 44px 44px;
+		padding: 40px 52px 48px;
 	}
 
 	.meta-info {
@@ -285,7 +362,7 @@ const seriesCount = seriesNotes.length;
 	h1 {
 		margin: 0 0 14px;
 		font-weight: 800;
-		font-size: var(--text-hero-sm);
+		font-size: var(--text-hero-xs);
 		letter-spacing: -0.02em;
 		line-height: var(--leading-snug);
 		color: var(--text-heading-dark);
@@ -293,47 +370,54 @@ const seriesCount = seriesNotes.length;
 
 	.description {
 		margin: 0 0 36px;
-		font-size: var(--text-xl);
+		font-size: var(--text-prose);
 		line-height: var(--leading-looser);
 		color: var(--text-secondary);
 		font-weight: 300;
 	}
 
-	/* Prose 样式 */
+	/* Prose 样式 —— 技术笔记按信息密度调，比 essays 紧 */
 	.prose {
-		font-size: var(--text-xl);
-		line-height: var(--leading-body-plus);
+		/* 侧栏堆叠后正文会撑满整张卡片，这里兜住行长，保持和两栏时一致的阅读宽度 */
+		max-width: 860px;
+		font-size: var(--text-prose);
+		line-height: var(--leading-looser);
 		color: var(--text-body);
 	}
 
+	/* 标题的 margin-top 是章节之间唯一的呼吸，不能是 0 */
 	.prose :global(h2) {
-		margin: 0 0 16px;
+		margin: 40px 0 14px;
 		font-weight: 700;
-		font-size: var(--text-6xl);
+		font-size: var(--text-4xl);
 		letter-spacing: -0.01em;
 		color: var(--text-heading);
 	}
 
+	.prose :global(h2:first-child) {
+		margin-top: 0;
+	}
+
 	.prose :global(h3) {
-		margin: 0 0 12px;
+		margin: 28px 0 10px;
 		font-weight: 600;
-		font-size: var(--text-3xl);
+		font-size: var(--text-2xl);
 		color: var(--text-heading);
 	}
 
 	.prose :global(p) {
-		margin: 0 0 22px;
+		margin: 0 0 18px;
 	}
 
 	.prose :global(ul),
 	.prose :global(ol) {
-		margin: 0 0 28px;
+		margin: 0 0 20px;
 		padding-left: 22px;
-		line-height: 1.95;
+		line-height: 1.72;
 	}
 
 	.prose :global(li) {
-		margin-bottom: 8px;
+		margin-bottom: 6px;
 	}
 
 	/* Callout 提示框 */
@@ -345,12 +429,12 @@ const seriesCount = seriesNotes.length;
 		border: 1px solid var(--notes-border);
 		border-left: 3px solid var(--notes-primary);
 		border-radius: var(--radius-md);
-		margin-bottom: 40px;
+		margin-bottom: 28px;
 	}
 
 	.prose :global(.callout p) {
 		margin: 0;
-		font-size: var(--text-lg-plus);
+		font-size: var(--text-lg);
 		line-height: var(--leading-looser);
 		color: #2c4a60;
 	}
@@ -432,6 +516,10 @@ const seriesCount = seriesNotes.length;
 			width: 100%;
 			border-right: none;
 			border-bottom: 1px solid var(--border-weak);
+		}
+
+		:global(html.notes-sidebar-collapsed) .sidebar {
+			display: none;
 		}
 	}
 
