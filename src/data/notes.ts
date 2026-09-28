@@ -21,6 +21,25 @@ export interface NoteSpaceLink {
 	href: string;
 }
 
+export interface NoteTreeItem {
+	kind: 'item';
+	id: string;
+	title: string;
+	order: number;
+	active: boolean;
+}
+
+export interface NoteTreeGroup {
+	kind: 'group';
+	key: string;
+	title: string;
+	order: number;
+	active: boolean;
+	children: NoteTreeNode[];
+}
+
+export type NoteTreeNode = NoteTreeItem | NoteTreeGroup;
+
 export function sortNotes(notes: NoteEntry[]) {
 	return [...notes].sort((a, b) => {
 		const sectionA = a.data.section ?? '';
@@ -64,6 +83,113 @@ export function buildNoteSeries(notes: NoteEntry[]): NoteSeriesGroup[] {
 			};
 		})
 		.sort((a, b) => a.series.localeCompare(b.series, 'zh-Hans-CN'));
+}
+
+function getSharedPathPrefix(notes: NoteEntry[]) {
+	if (notes.length === 0) return [];
+
+	const pathParts = notes.map((note) => note.id.split('/').slice(0, -1));
+	const [firstPath] = pathParts;
+	const prefix: string[] = [];
+
+	for (const [index, part] of firstPath.entries()) {
+		if (pathParts.every((currentPath) => currentPath[index] === part)) {
+			prefix.push(part);
+		} else {
+			break;
+		}
+	}
+
+	return prefix;
+}
+
+function getSortablePrefix(segment: string) {
+	const match = segment.match(/^(\d+)/);
+	return match ? Number(match[1]) : undefined;
+}
+
+function formatPathSegment(segment: string) {
+	const withoutPrefix = segment.replace(/^\d+[_-]?/, '');
+	const words = withoutPrefix
+		.replace(/[_-]+/g, ' ')
+		.trim()
+		.split(/\s+/)
+		.filter(Boolean);
+
+	if (words.length === 0) return segment;
+
+	return words
+		.map((word) => {
+			if (word.length <= 3 && word === word.toLowerCase()) {
+				return word.toUpperCase();
+			}
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		})
+		.join(' ');
+}
+
+function sortTreeNodes(nodes: NoteTreeNode[]) {
+	nodes.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, 'zh-Hans-CN'));
+
+	for (const node of nodes) {
+		if (node.kind === 'group') {
+			sortTreeNodes(node.children);
+		}
+	}
+
+	return nodes;
+}
+
+export function buildNoteTree(notes: NoteEntry[], currentId: string): NoteTreeNode[] {
+	const prefix = getSharedPathPrefix(notes);
+	const root: NoteTreeNode[] = [];
+	const groups = new Map<string, NoteTreeGroup>();
+
+	for (const note of notes) {
+		const parts = note.id.split('/').slice(prefix.length);
+		const directories = parts.slice(0, -1);
+		let siblings = root;
+		let parentPath = '';
+
+		for (const directory of directories) {
+			const groupKey = parentPath ? `${parentPath}/${directory}` : directory;
+			let group = groups.get(groupKey);
+
+			if (!group) {
+				group = {
+					kind: 'group',
+					key: groupKey,
+					title: formatPathSegment(directory),
+					order: Number.POSITIVE_INFINITY,
+					active: false,
+					children: [],
+				};
+				groups.set(groupKey, group);
+				siblings.push(group);
+			}
+
+			// 目录取它内部所有笔记里最小的 order，这样文件夹会排在它内容该在的位置，
+			// 跟同级的单篇笔记也能正确混排；笔记没写 order 时退回目录名的数字前缀。
+			group.order = Math.min(group.order, note.data.order ?? getSortablePrefix(directory) ?? 0);
+
+			if (note.id === currentId) {
+				group.active = true;
+			}
+
+			siblings = group.children;
+			parentPath = groupKey;
+		}
+
+		siblings.push({
+			kind: 'item',
+			id: note.id,
+			title: note.data.title,
+			order: note.data.order ?? 0,
+			active: note.id === currentId,
+		});
+	}
+
+	return sortTreeNodes(root);
 }
 
 export function buildNoteSections(notes: NoteEntry[]): NoteSectionGroup[] {

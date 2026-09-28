@@ -1,0 +1,157 @@
+---
+import type { NoteTreeNode } from '../data/notes';
+
+interface Props {
+	nodes: NoteTreeNode[];
+	level?: number;
+}
+
+const { nodes, level = 0 } = Astro.props;
+---
+
+<ul class:list={['note-tree', `level-${level}`]}>
+	{nodes.map((node) => (
+		node.kind === 'group' ? (
+			<li class:list={['tree-group', { active: node.active }]} data-note-group>
+				<button
+					class:list={['tree-toggle', { active: node.active }]}
+					type="button"
+					data-note-toggle
+					aria-expanded={node.active ? 'true' : 'false'}
+				>
+					<span class="tree-folder">{node.title}</span>
+					<span class="tree-arrow" aria-hidden="true">⌄</span>
+				</button>
+				<div class:list={['tree-panel', { open: node.active }]} data-note-panel>
+					<Astro.self nodes={node.children} level={level + 1} />
+				</div>
+			</li>
+		) : (
+			<li class="tree-item">
+				<a href={`/notes/${node.id}/`} class:list={['tree-link', { active: node.active }]}>
+					<span>{node.title}</span>
+				</a>
+			</li>
+		)
+	))}
+</ul>
+
+<style>
+	.note-tree {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
+	/* level-0 是根，其余每一层都再缩进一次，支持任意层数嵌套 */
+	/* 不加 margin-top：它是 grid item，收起时外边距会让面板留下几 px 高度，间距交给 .tree-panel.open */
+	.note-tree:not(.level-0) {
+		padding-left: 10px;
+		border-left: 1px solid var(--border-weak-alt);
+	}
+
+	/* 二级及以下的文件夹弱化，跟一级的分区标题拉开层次 */
+	.note-tree:not(.level-0) .tree-folder {
+		font-size: var(--text-md);
+		font-weight: 600;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--text-secondary);
+	}
+
+	.tree-group + .tree-group,
+	.tree-item + .tree-group {
+		margin-top: 5px;
+	}
+
+	.tree-toggle,
+	.tree-link {
+		width: 100%;
+		min-height: 34px;
+		border-radius: var(--radius-md);
+		color: var(--text-secondary);
+		font-size: var(--text-md-plus);
+		line-height: var(--leading-relaxed);
+	}
+
+	.tree-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 7px 10px;
+		text-align: left;
+	}
+
+	.tree-link {
+		display: flex;
+		align-items: center;
+		padding: 8px 11px;
+		text-decoration: none;
+	}
+
+	.tree-toggle:hover,
+	.tree-link:hover {
+		background: #f0f4f7;
+	}
+
+	.tree-toggle.active,
+	.tree-link.active {
+		color: var(--notes-primary-dark);
+		font-weight: 600;
+		background: var(--notes-bg-light);
+	}
+
+	.tree-link.active {
+		box-shadow: inset 3px 0 0 var(--notes-primary);
+	}
+
+	.tree-folder,
+	.tree-link span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tree-folder {
+		font-size: var(--text-sm);
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.tree-arrow {
+		flex-shrink: 0;
+		color: var(--text-meta-light);
+		transform: rotate(-90deg);
+		transition: transform 0.18s ease;
+	}
+
+	.tree-toggle[aria-expanded='true'] .tree-arrow {
+		transform: rotate(0deg);
+	}
+
+	/*
+	 * 用 grid 的 0fr → 1fr 做展开动画，而不是 max-height。
+	 * max-height 需要 JS 量 scrollHeight，嵌套目录里父面板会量到过渡中的旧高度而把子项裁掉；
+	 * 1fr 由浏览器解析成内容的自然高度，天然支持任意层数。
+	 */
+	.tree-panel {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows 0.22s ease;
+	}
+
+	.tree-panel.open {
+		margin-top: 3px;
+		grid-template-rows: 1fr;
+	}
+
+	.tree-panel > .note-tree {
+		min-height: 0;
+		overflow: hidden;
+	}
+</style>

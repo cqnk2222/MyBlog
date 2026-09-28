@@ -9,7 +9,8 @@ interface Props {
 }
 
 const { entry } = Astro.props;
-const { title, titleEn, description, pubDate, author = '杨浩', location = '写于北京' } = entry.data;
+// location 不再给默认值：默认落款就是 author 本身，单篇想署地点再在 frontmatter 里写
+const { title, titleEn, description, pubDate, author = 'written by kk', location } = entry.data;
 
 // 格式化日期为中文格式
 const year = pubDate.getFullYear();
@@ -53,7 +54,7 @@ const dateStr = `${year} 年 ${month} 月 ${day} 日`;
 
 				<!-- 落款 -->
 				<div class="signature">
-					—— {author}，{location}
+					—— {author}{location && `，${location}`}
 				</div>
 			</div>
 		</article>
