@@ -3,8 +3,9 @@
 // 生产构建不会包含这个页面。
 import '../styles/tokens.css';
 import { COLLECTIONS, API_PREFIX } from './schema.mjs';
+import { NOTE_SPACES } from '../data/note-space-config.mjs';
 
-const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
+const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES, api: API_PREFIX });
 ---
 
 <!doctype html>
@@ -69,6 +70,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 							<summary>Frontmatter</summary>
 							<div class="ed-fields" id="fields"></div>
 							<div class="ed-meta-foot">
+								<button class="ed-btn ed-btn-quiet" id="btn-new-child" hidden>新建子笔记 / 章节</button>
 								<button class="ed-btn ed-btn-quiet" id="btn-rename">重命名 / 移动</button>
 								<button class="ed-btn ed-btn-danger" id="btn-delete">删除</button>
 							</div>
@@ -113,11 +115,28 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 		<dialog id="dlg-new">
 			<form method="dialog" class="ed-dialog" id="form-new">
-				<h3>新建文章</h3>
+				<h3 id="new-dialog-title">新建文章</h3>
+				<p class="ed-dialog-note" id="new-parent-hint" hidden></p>
 
 				<label>
 					<span>Collection</span>
 					<select id="new-collection"></select>
+				</label>
+
+				<label id="new-space-field">
+					<span>笔记分类</span>
+					<select id="new-space"></select>
+				</label>
+
+				<label id="new-series-field">
+					<span>系列（可留空）</span>
+					<input id="new-series" list="new-series-list" autocomplete="off" />
+					<datalist id="new-series-list"></datalist>
+				</label>
+
+				<label id="new-order-field">
+					<span>章节顺序（可留空）</span>
+					<input id="new-order" type="number" step="any" />
 				</label>
 
 				<label>
@@ -128,13 +147,13 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 				<label>
 					<span>文件名</span>
-					<input id="new-slug" placeholder="ring-algorithm" autocomplete="off" />
+					<input id="new-slug" autocomplete="off" />
 					<small id="new-path-hint"></small>
 				</label>
 
 				<label>
 					<span id="new-title-label">标题</span>
-					<input id="new-title" placeholder="Ring Algorithm" autocomplete="off" />
+					<input id="new-title" autocomplete="off" />
 				</label>
 
 				<p class="ed-dialog-error" id="new-error" hidden></p>
@@ -160,14 +179,16 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 				<label class="ed-switch">
 					<input type="checkbox" id="publish-push" checked />
-					<span>提交后 push 到 origin（触发线上部署）</span>
+					<span>提交后 push 到 origin 当前分支</span>
 				</label>
 
 				<pre class="ed-log" id="publish-log" hidden></pre>
+				<p class="ed-dialog-note">发布到 main 会先提交笔记，再合并当前 codex 分支的全部已提交内容。其他未提交的代码不包含在内。冲突时停止，当前编辑分支保持不变。</p>
 
 				<menu>
 					<button type="button" class="ed-btn" data-close="dlg-publish">关闭</button>
 					<button type="submit" class="ed-btn ed-btn-primary" id="publish-submit">提交</button>
+					<button type="button" class="ed-btn ed-btn-primary" id="publish-main">合并并发布到 main</button>
 				</menu>
 			</form>
 		</dialog>
@@ -175,16 +196,22 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 		<div class="ed-toast" id="toast" hidden></div>
 
 		<script>
-			const { collections: SCHEMA, api: API } = window.__EDITOR__;
+			import { buildEditorTree, expandFileAncestors, getChildNoteContext } from './note-navigation.mjs';
+			const { collections: SCHEMA, spaces: NOTE_SPACES, api: API } = window.__EDITOR__;
 
 			const state = {
 				files: [],
 				current: null, // { path, collection, frontmatter, body, url }
 				dirty: false,
-				collection: 'all',
+				collection: 'notes',
 				search: '',
 				preview: 'draft',
-				collapsed: new Set(JSON.parse(localStorage.getItem('ed-collapsed') || '[]')),
+				newContext: null,
+				newSeriesEdited: false,
+				collapsed: new Set(JSON.parse(localStorage.getItem('ed-collapsed-v2') || JSON.stringify([
+					...JSON.parse(localStorage.getItem('ed-collapsed') || '[]'),
+					...NOTE_SPACES.map(space => `notes@${space.slug}`),
+				]))),
 				git: { branch: null, changes: [] },
 			};
 
@@ -264,49 +291,96 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 			}
 
 			function buildTree(files) {
-				const root = { dirs: new Map(), files: [] };
+				return buildEditorTree(files, { collection: state.collection, search: state.search });
+			}
 
-				for (const file of files) {
-					const segments = file.path.split('/');
-					let node = root;
-					let prefix = '';
+			function fileButton(file) {
+				const link = document.createElement('button');
+				link.type = 'button';
+				link.className = 'ed-file' + (state.current?.path === file.path ? ' is-active' : '');
+				const label = document.createElement('span');
+				label.textContent = file.title;
+				link.append(label);
+				link.title = file.path;
+				link.addEventListener('click', () => openFile(file.path));
+				return link;
+			}
 
-					for (const segment of segments.slice(0, -1)) {
-						prefix = prefix ? `${prefix}/${segment}` : segment;
-						if (!node.dirs.has(segment)) {
-							node.dirs.set(segment, { name: segment, key: prefix, dirs: new Map(), files: [] });
-						}
-						node = node.dirs.get(segment);
-					}
-
-					node.files.push(file);
-				}
-
-				return root;
+			function childButton(file) {
+				const add = document.createElement('button');
+				add.type = 'button';
+				add.className = 'ed-folder-add';
+				add.textContent = '+';
+				add.title = '新建子笔记 / 章节';
+				add.setAttribute('aria-label', `在 ${file.title} 下新建子笔记`);
+				add.dataset.parentPath = file.path;
+				add.addEventListener('click', event => {
+					event.stopPropagation();
+					openChildDialog(file.path);
+				});
+				return add;
 			}
 
 			function renderNode(node, depth) {
 				const list = document.createElement('ul');
 				list.className = 'ed-tree-list';
 
-				const dirs = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+				const dirs = [...node.dirs.values()].sort((a, b) =>
+					(a.sortOrder ?? 99) - (b.sortOrder ?? 99) || a.name.localeCompare(b.name, 'zh-Hans-CN'));
 				for (const dir of dirs) {
 					const open = !state.collapsed.has(dir.key) || Boolean(state.search.trim());
 					const item = document.createElement('li');
 
+					const folderRow = document.createElement('div');
+					folderRow.className = 'ed-folder-row';
 					const toggle = document.createElement('button');
-					toggle.className = 'ed-folder';
+					toggle.className = dir.entry ? 'ed-parent-toggle' : 'ed-folder' + (dir.count !== undefined ? ' ed-space-folder' : '');
 					toggle.type = 'button';
-					toggle.innerHTML = `<span class="ed-arrow${open ? ' is-open' : ''}">›</span><span>${dir.name}</span>`;
+					toggle.setAttribute('aria-expanded', String(open));
+					if (dir.entry) toggle.setAttribute('aria-label', `${open ? '折叠' : '展开'} ${dir.name} 的子笔记`);
+					const arrow = document.createElement('span');
+					arrow.className = 'ed-arrow' + (open ? ' is-open' : '');
+					arrow.textContent = '›';
+					const label = document.createElement('span');
+					label.className = 'ed-folder-label';
+					label.textContent = dir.name;
+					toggle.append(arrow);
+					if (!dir.entry) toggle.append(label);
+					if (dir.count !== undefined) {
+						const count = document.createElement('span');
+						count.className = 'ed-folder-count';
+						count.textContent = String(dir.count);
+						toggle.append(count);
+					}
 					toggle.addEventListener('click', () => {
 						if (state.collapsed.has(dir.key)) state.collapsed.delete(dir.key);
 						else state.collapsed.add(dir.key);
-						localStorage.setItem('ed-collapsed', JSON.stringify([...state.collapsed]));
+						localStorage.setItem('ed-collapsed-v2', JSON.stringify([...state.collapsed]));
 						renderTree();
 					});
 
-					item.append(toggle);
-					if (open) item.append(renderNode(dir, depth + 1));
+					const add = document.createElement('button');
+					add.type = 'button';
+					add.className = 'ed-folder-add';
+					add.textContent = '+';
+					add.title = '在此文件夹新建文章';
+					const creationLabel = dir.count !== undefined ? dir.name : [dir.collection, dir.dir].filter(Boolean).join('/');
+					add.setAttribute('aria-label', `在 ${creationLabel} 新建文章`);
+					add.addEventListener('click', (event) => {
+						event.stopPropagation();
+						openNewDialog({ collection: dir.collection, dir: dir.dir, space: dir.space });
+					});
+					if (dir.entry) folderRow.append(toggle, fileButton(dir.entry), childButton(dir.entry));
+					else folderRow.append(toggle, add);
+					item.append(folderRow);
+					if (open) {
+						if (!dir.dirs.size && !dir.files.length) {
+							const empty = document.createElement('p');
+							empty.className = 'ed-tree-empty';
+							empty.textContent = '暂无笔记，点 + 开始写';
+							item.append(empty);
+						} else item.append(renderNode(dir, depth + 1));
+					}
 					list.append(item);
 				}
 
@@ -317,13 +391,11 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 				for (const file of files) {
 					const item = document.createElement('li');
-					const link = document.createElement('button');
-					link.type = 'button';
-					link.className = 'ed-file' + (state.current?.path === file.path ? ' is-active' : '');
-					link.innerHTML = `<span>${file.title}</span>`;
-					link.title = file.path;
-					link.addEventListener('click', () => openFile(file.path));
-					item.append(link);
+					const row = document.createElement('div');
+					row.className = 'ed-file-row';
+					row.append(fileButton(file));
+					if (file.collection === 'notes') row.append(childButton(file));
+					item.append(row);
 					list.append(item);
 				}
 
@@ -332,9 +404,10 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 			function renderTree() {
 				const files = visibleFiles();
+				const tree = buildTree(files);
 				els.tree.replaceChildren();
 
-				if (files.length === 0) {
+				if (!tree.dirs.size && !tree.files.length) {
 					const empty = document.createElement('p');
 					empty.className = 'ed-tree-empty';
 					empty.textContent = '没有匹配的文件';
@@ -342,7 +415,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 					return;
 				}
 
-				els.tree.append(renderNode(buildTree(files), 0));
+				els.tree.append(renderNode(tree, 0));
 			}
 
 			function renderTabs() {
@@ -385,7 +458,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 					const row = document.createElement('div');
 					row.className = 'ed-field-input';
 
-					const value = frontmatter[field.key];
+					const value = field.key === 'space' ? (frontmatter.space ?? state.current.space ?? '') : frontmatter[field.key];
 
 					let input;
 					if (field.type === 'textarea') {
@@ -488,6 +561,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 					}
 
 					const raw = input.value.trim();
+					// Keep legacy frontmatter untouched when its inferred category hasn't changed.
+					if (key === 'space' && frontmatter.space === undefined && raw === (state.current.space ?? '')) continue;
 
 					if (raw === '') {
 						delete frontmatter[key];
@@ -523,6 +598,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 				const file = await api(`/file?path=${encodeURIComponent(path)}`);
 				state.current = file;
+				if (state.collection !== 'all' && state.collection !== file.collection) state.collection = file.collection;
+				expandFileAncestors(buildTree(visibleFiles()), file.path, state.collapsed);
 				setDirty(false);
 
 				els.empty.hidden = true;
@@ -532,8 +609,10 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 				els.body.value = file.body;
 				els.openPage.href = file.url;
 				els.openPage.hidden = false;
+				$('btn-new-child').hidden = file.collection !== 'notes';
 
 				renderFields();
+				renderTabs();
 				renderTree();
 				updateCount();
 				refreshPreview();
@@ -544,17 +623,23 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 				try {
 					const frontmatter = collectFrontmatter();
-					await api('/save', {
+					const result = await api('/save', {
 						method: 'POST',
 						body: JSON.stringify({ path: state.current.path, frontmatter, body: els.body.value }),
 					});
 
 					state.current.frontmatter = frontmatter;
+					state.current.space = result.space;
+					state.current.groupSeries = result.groupSeries;
+					const spaceInput = els.fields.querySelector('[data-key="space"]');
+					if (spaceInput) spaceInput.value = frontmatter.space ?? result.space ?? '';
 					state.current.body = els.body.value;
 					setDirty(false);
 					if (!silent) toast('已保存 ' + state.current.path);
 
 					await loadFiles();
+					expandFileAncestors(buildTree(visibleFiles()), state.current.path, state.collapsed);
+					renderTree();
 					await loadGit();
 					if (state.preview === 'page') els.frame.contentWindow?.location.reload();
 				} catch (error) {
@@ -706,7 +791,11 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 			/* --------------------------------------------------------- dialogs */
 
 			function refreshDirList() {
-				const dirs = [...new Set(state.files.map((file) => file.dir).filter(Boolean))].sort();
+				const collection = $('new-collection').value;
+				const space = $('new-space').value;
+				const dirs = [...new Set(state.files
+					.filter(file => file.collection === collection && (collection !== 'notes' || file.space === space))
+					.map((file) => file.dir).filter(Boolean))].sort();
 				$('dir-list').replaceChildren(
 					...dirs.map((dir) => {
 						const option = document.createElement('option');
@@ -714,6 +803,13 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 						return option;
 					}),
 				);
+				const series = [...new Set(state.files.filter(file => file.collection === 'notes' && file.space === space)
+					.map(file => file.groupSeries).filter(value => value && value !== 'Notes'))].sort();
+				$('new-series-list').replaceChildren(...series.map(value => {
+					const option = document.createElement('option');
+					option.value = value;
+					return option;
+				}));
 			}
 
 			function newFilePath() {
@@ -725,7 +821,10 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 				return [collection, dir, name].filter(Boolean).join('/');
 			}
 
-			function openNewDialog() {
+			function openNewDialog({ collection: initialCollection, dir: initialDir, space: initialSpace,
+				series: initialSeries, section: initialSection, order: initialOrder, parentPath, parentTitle } = {}) {
+				state.newContext = parentPath ? { parentPath, section: initialSection } : null;
+				state.newSeriesEdited = false;
 				const select = $('new-collection');
 				select.replaceChildren(
 					...Object.entries(SCHEMA).map(([key, value]) => {
@@ -735,22 +834,64 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 						return option;
 					}),
 				);
-				select.value = state.current?.collection || 'notes';
-				$('new-dir').value = state.current?.path.split('/').slice(1, -1).join('/') || '';
+				select.value = initialCollection || (state.collection !== 'all' ? state.collection : state.current?.collection) || 'notes';
+				select.disabled = Boolean(parentPath);
+				$('new-space').replaceChildren(...NOTE_SPACES.map(space => {
+					const option = document.createElement('option');
+					option.value = space.slug;
+					option.textContent = space.title;
+					return option;
+				}));
+				if (parentPath && !initialSpace) {
+					const option = document.createElement('option');
+					option.value = '';
+					option.textContent = '自动识别 / 未分类';
+					$('new-space').prepend(option);
+				}
+				$('new-space').value = parentPath ? (initialSpace ?? '')
+					: initialSpace || (state.current?.collection === 'notes' ? state.current.space : null) || NOTE_SPACES[0].slug;
+				$('new-dir').value = initialDir ?? (state.current?.collection === select.value ? state.current.path.split('/').slice(1, -1).join('/') : '');
+				const sibling = state.files.find(file => file.collection === select.value && file.dir === $('new-dir').value && file.space === $('new-space').value);
+				$('new-series').value = initialSeries ?? (sibling?.groupSeries !== 'Notes' ? sibling?.groupSeries : '') ?? '';
+				$('new-order').value = initialOrder ?? '';
+				$('new-dialog-title').textContent = parentPath ? '新建子笔记 / 章节' : '新建文章';
+				$('new-parent-hint').hidden = !parentPath;
+				$('new-parent-hint').textContent = parentPath ? `上级笔记：${parentTitle}` : '';
 				$('new-slug').value = '';
 				$('new-title').value = '';
 				$('new-error').hidden = true;
 				$('new-path-hint').textContent = '';
 				syncNewDialogLabel();
+				refreshDirList();
 				$('dlg-new').showModal();
+			}
+
+			async function openChildDialog(path) {
+				try {
+					const parent = state.current?.path === path
+						? { ...state.current, frontmatter: collectFrontmatter() }
+						: await api(`/file?path=${encodeURIComponent(path)}`);
+					openNewDialog(getChildNoteContext(parent, state.files));
+				} catch (error) {
+					toast(error.message, 'error');
+				}
+			}
+
+			function syncNewSeriesFromDirectory() {
+				if (state.newContext || state.newSeriesEdited) return;
+				const dir = $('new-dir').value.trim().replace(/^\/+|\/+$/g, '');
+				const sibling = state.files.find(file => file.collection === $('new-collection').value && file.dir === dir && file.space === $('new-space').value);
+				$('new-series').value = sibling?.groupSeries && sibling.groupSeries !== 'Notes' ? sibling.groupSeries : '';
 			}
 
 			/** following 用「名称」，其它 collection 用「标题」。 */
 			function syncNewDialogLabel() {
+				$('new-space-field').hidden = $('new-collection').value !== 'notes';
+				$('new-series-field').hidden = $('new-collection').value !== 'notes';
+				$('new-order-field').hidden = $('new-collection').value !== 'notes';
 				const fields = SCHEMA[$('new-collection').value]?.fields ?? [];
 				const primary = fields.find((field) => field.primary);
 				$('new-title-label').textContent = primary?.label ?? '标题';
-				$('new-title').placeholder = primary?.key === 'name' ? 'Lilian Weng' : 'Ring Algorithm';
 			}
 
 			async function createFile(event) {
@@ -779,6 +920,22 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 					else if (field.type === 'select') frontmatter[field.key] = field.options[0].value;
 					else if (field.type === 'date' && field.required) frontmatter[field.key] = today();
 					else if (field.required) frontmatter[field.key] = title;
+				}
+				if (collection === 'notes') {
+					if ($('new-space').value) frontmatter.space = $('new-space').value;
+					else delete frontmatter.space;
+					const series = $('new-series').value.trim();
+					if (series) frontmatter.series = series;
+					if (state.newContext?.section) frontmatter.section = state.newContext.section;
+					const order = $('new-order').value.trim();
+					if (order) {
+						if (!Number.isFinite(Number(order))) {
+							error.textContent = '章节顺序需要是数字。';
+							error.hidden = false;
+							return;
+						}
+						frontmatter.order = Number(order);
+					}
 				}
 
 				try {
@@ -809,7 +966,9 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 			}
 
 			async function openPublishDialog() {
+				if (state.dirty) return toast('请先保存当前笔记再发布', 'error');
 				await loadGit();
+				$('publish-main').disabled = !state.git.branch?.startsWith('codex/');
 
 				const branch = state.git.branch || '(unknown)';
 				$('publish-branch').innerHTML =
@@ -834,39 +993,43 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 				$('dlg-publish').showModal();
 			}
 
-			async function runPublish(event) {
+			async function runPublish(event, toMain = false) {
 				event.preventDefault();
 
 				const message = $('publish-message').value.trim();
 				const push = $('publish-push').checked;
 				const log = $('publish-log');
 
-				if (!message) {
+				if (state.dirty) return toast('请先保存当前笔记再发布', 'error');
+				if (!message && (!toMain || state.git.changes.length)) {
 					log.hidden = false;
 					log.textContent = '请填写 commit message。';
 					return;
 				}
 
 				const submit = $('publish-submit');
+				if (toMain && !confirm(`将 ${state.git.branch} 的全部已提交内容合并并推送到 main，触发正式发布。笔记改动会先提交，其他未提交代码不包含在内。继续？`)) return;
 				submit.disabled = true;
+				$('publish-main').disabled = true;
 				log.hidden = false;
 				log.textContent = '执行中…';
 
 				try {
-					const result = await api('/publish', { method: 'POST', body: JSON.stringify({ message, push }) });
+					const result = await api(toMain ? '/merge-main' : '/publish', { method: 'POST', body: JSON.stringify({ message, push }) });
 					log.textContent = (result.note ? result.note + '\n\n' : '') +
 						result.steps
 							.map((step) => `$ ${step.command}\n${(step.stdout + step.stderr).trim()}`)
 							.join('\n\n');
 
 					await loadGit();
-					if (result.ok) toast(push ? '已提交并推送' : '已提交');
+					if (result.ok) toast(toMain ? '已合并并推送到 main' : push ? '已提交并推送' : '已提交');
 					else toast('发布未完成，看日志', 'error');
 				} catch (error) {
 					log.textContent = error.message;
 					toast(error.message, 'error');
 				} finally {
 					submit.disabled = false;
+					$('publish-main').disabled = !state.git.branch?.startsWith('codex/');
 				}
 			}
 
@@ -892,6 +1055,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 			els.save.addEventListener('click', () => save());
 			$('btn-new').addEventListener('click', openNewDialog);
+			$('btn-new-child').addEventListener('click', () => openChildDialog(state.current?.path));
 			$('btn-delete').addEventListener('click', removeFile);
 			$('btn-rename').addEventListener('click', renameFile);
 			$('btn-publish').addEventListener('click', openPublishDialog);
@@ -899,6 +1063,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 			// 绑在 form 的 submit 上，这样输入框里按 Enter 也能走同一套逻辑。
 			$('form-new').addEventListener('submit', createFile);
 			$('form-publish').addEventListener('submit', runPublish);
+			$('publish-main').addEventListener('click', (event) => runPublish(event, true));
 
 			for (const button of document.querySelectorAll('[data-close]')) {
 				button.addEventListener('click', () => $(button.dataset.close).close());
@@ -906,11 +1071,31 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 			for (const input of [$('new-collection'), $('new-dir'), $('new-slug')]) {
 				input.addEventListener('input', () => {
+					if (input.id === 'new-dir') syncNewSeriesFromDirectory();
 					$('new-path-hint').textContent = newFilePath() ? `→ src/content/${newFilePath()}` : '';
 				});
 			}
 
-			$('new-collection').addEventListener('change', syncNewDialogLabel);
+			$('new-collection').addEventListener('change', () => {
+				state.newSeriesEdited = false;
+				$('new-dir').value = '';
+				$('new-series').value = '';
+				$('new-order').value = '';
+				$('new-path-hint').textContent = newFilePath() ? `→ src/content/${newFilePath()}` : '';
+				refreshDirList();
+				syncNewDialogLabel();
+			});
+			$('new-space').addEventListener('change', () => {
+				if (!state.newContext) {
+					state.newSeriesEdited = false;
+					$('new-dir').value = '';
+					$('new-series').value = '';
+					$('new-order').value = '';
+				}
+				$('new-path-hint').textContent = newFilePath() ? `→ src/content/${newFilePath()}` : '';
+				refreshDirList();
+			});
+			$('new-series').addEventListener('input', () => { state.newSeriesEdited = true; });
 
 			$('toolbar').addEventListener('click', (event) => {
 				const button = event.target.closest('[data-md]');
@@ -1261,6 +1446,51 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 				font-size: var(--text-md);
 			}
 
+			.ed-folder-row,
+			.ed-file-row {
+				display: flex;
+				align-items: center;
+			}
+
+			.ed-folder-row .ed-folder {
+				min-width: 0;
+				flex: 1;
+			}
+
+			.ed-folder-row .ed-file,
+			.ed-file-row .ed-file { min-width: 0; flex: 1; width: auto; }
+			.ed-parent-toggle {
+				flex: 0 0 22px; width: 22px; padding: 6px 3px; border: none;
+				border-radius: var(--radius-sm); background: transparent; color: var(--text-tertiary);
+			}
+			.ed-parent-toggle:hover { background: var(--notes-bg-light); }
+
+			.ed-folder-add {
+				width: 24px;
+				height: 24px;
+				padding: 0;
+				border: 0;
+				border-radius: var(--radius-sm);
+				background: transparent;
+				color: var(--text-meta);
+				font-size: 18px;
+				line-height: 1;
+				cursor: pointer;
+				opacity: 0;
+				transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+			}
+
+			.ed-folder-row:hover .ed-folder-add,
+			.ed-file-row:hover .ed-folder-add,
+			.ed-folder-add:focus-visible {
+				opacity: 1;
+			}
+
+			.ed-folder-add:hover {
+				background: var(--notes-bg-light);
+				color: var(--notes-primary-dark);
+			}
+
 			.ed-folder {
 				font-size: var(--text-sm);
 				font-weight: 700;
@@ -1268,6 +1498,15 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 				text-transform: uppercase;
 				color: var(--text-tertiary);
 			}
+
+			.ed-space-folder {
+				text-transform: none;
+				letter-spacing: 0;
+				font-size: var(--text-md);
+			}
+
+			.ed-folder-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.ed-folder-count { flex: 0 0 auto; color: var(--text-meta); font: var(--text-xs) var(--font-mono); }
 
 			.ed-folder:hover,
 			.ed-file:hover {
@@ -1464,6 +1703,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, api: API_PREFIX });
 
 			.ed-meta-foot {
 				display: flex;
+				flex-wrap: wrap;
 				gap: 8px;
 				padding: 0 20px 16px;
 			}

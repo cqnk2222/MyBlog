@@ -36,6 +36,7 @@ export interface NoteTreeGroup {
 	order: number;
 	active: boolean;
 	children: NoteTreeNode[];
+	entry?: NoteTreeItem;
 }
 
 export type NoteTreeNode = NoteTreeItem | NoteTreeGroup;
@@ -190,6 +191,29 @@ export function buildNoteTree(notes: NoteEntry[], currentId: string): NoteTreeNo
 	}
 
 	return sortTreeNodes(root);
+}
+
+/** Book directories retain each parent article alongside its nested chapters. */
+export function buildNoteContents(notes: NoteEntry[]): NoteTreeNode[] {
+	const prefix = getSharedPathPrefix(notes);
+	const tree = buildNoteTree(notes, '');
+	function pairParents(nodes: NoteTreeNode[]): NoteTreeNode[] {
+		const paired = new Set<NoteTreeNode>();
+		for (const node of nodes) {
+			if (node.kind !== 'group') continue;
+			const parentId = [...prefix, node.key].join('/');
+			const parent = nodes.find((entry): entry is NoteTreeItem => entry.kind === 'item' && entry.id === parentId);
+			if (parent) {
+				node.entry = parent;
+				node.title = parent.title;
+				node.order = Math.min(node.order, parent.order);
+				paired.add(parent);
+			}
+			node.children = pairParents(node.children);
+		}
+		return nodes.filter((node) => !paired.has(node));
+	}
+	return sortTreeNodes(pairParents(tree));
 }
 
 export function buildNoteSections(notes: NoteEntry[]): NoteSectionGroup[] {

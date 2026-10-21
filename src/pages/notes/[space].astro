@@ -1,0 +1,20 @@
+---
+import { getCollection } from 'astro:content';
+import NotesDirectoryLayout from '../../layouts/NotesDirectoryLayout.astro';
+import NoteSeriesContents from '../../components/NoteSeriesContents.astro';
+import { buildSpaceSeries, NOTE_SPACES, type NoteSpace } from '../../data/note-spaces';
+
+export function getStaticPaths() {
+	return NOTE_SPACES.map((area) => ({ params: { space: area.slug }, props: { area } }));
+}
+
+const { area } = Astro.props as { area: NoteSpace };
+const notes = await getCollection('notes');
+const series = buildSpaceSeries(notes, area);
+const noteCount = series.reduce((count, group) => count + group.count, 0);
+---
+
+<NotesDirectoryLayout title={area.title} description={area.description} backHref="/notes/" backLabel="All Notes"
+	summary={`${series.length} 个系列 · ${noteCount} 篇笔记`}>
+	<NoteSeriesContents series={series} emptyMessage="这个分区暂时还没有笔记。" />
+</NotesDirectoryLayout>

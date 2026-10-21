@@ -3,6 +3,7 @@
  * 纯数据模块，服务端（api.mjs）和页面（EditorPage.astro）共用。
  * 新增 collection 字段时，记得同步修改 content.config.ts。
  */
+import { NOTE_SPACES } from '../data/note-space-config.mjs';
 
 /** 编辑器接口挂载的前缀，页面和 dev 中间件共用。 */
 export const API_PREFIX = '/__note-editor';
@@ -16,6 +17,10 @@ export const COLLECTIONS = {
 		fields: [
 			{ key: 'title', label: '标题', type: 'text', required: true, primary: true },
 			{ key: 'description', label: '摘要', type: 'textarea', required: true },
+			{
+				key: 'space', label: '笔记分类', type: 'select',
+				options: [{ value: '', label: '自动识别' }, ...NOTE_SPACES.map(space => ({ value: space.slug, label: space.title }))],
+			},
 			{ key: 'pubDate', label: '发布日期', type: 'date', required: true },
 			{ key: 'updatedDate', label: '更新日期', type: 'date' },
 			{ key: 'section', label: 'Section', type: 'text', suggest: 'section' },

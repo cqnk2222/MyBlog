@@ -1,0 +1,22 @@
+---
+import { getCollection } from 'astro:content';
+import NotesDirectoryLayout from '../../../../layouts/NotesDirectoryLayout.astro';
+import NoteArticleContents from '../../../../components/NoteArticleContents.astro';
+import { buildSpaceSeries, NOTE_SPACES, type NoteSpace, type NoteSpaceSeries } from '../../../../data/note-spaces';
+import { buildNoteContents } from '../../../../data/notes';
+
+export async function getStaticPaths() {
+	const notes = await getCollection('notes');
+	return NOTE_SPACES.flatMap(area => buildSpaceSeries(notes, area).map(group => ({
+		params: { space: area.slug, series: group.slug }, props: { area, group },
+	})));
+}
+
+const { area, group } = Astro.props as { area: NoteSpace; group: NoteSpaceSeries };
+const nodes = buildNoteContents(group.notes);
+---
+
+<NotesDirectoryLayout title={group.series} description={`${group.series} · ${area.title} 笔记目录`}
+	backHref={`/notes/${area.slug}/`} backLabel={area.title} summary={`${group.count} 篇笔记`}>
+	<NoteArticleContents nodes={nodes} />
+</NotesDirectoryLayout>

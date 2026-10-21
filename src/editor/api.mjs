@@ -8,6 +8,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { COLLECTIONS, fieldOrder } from './schema.mjs';
+import { mergeToMain } from './git-publish.mjs';
+import { getNoteSpace, getSpaceForNote, seriesNameForSpace } from '../data/note-space-config.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -82,6 +84,13 @@ function entryUrl(collection, relativePath) {
 
 	const id = toEntryId(relativePath);
 	return id ? `${base}/${id}/` : base;
+}
+
+function noteMetadata(collection, relativePath, data) {
+	if (collection !== 'notes') return {};
+	const note = { id: typeof data.slug === 'string' ? data.slug : toEntryId(relativePath), data };
+	const space = getSpaceForNote(note);
+	return { space: space?.slug ?? null, groupSeries: space ? seriesNameForSpace(note, space) : null };
 }
 
 async function walkMarkdown(dir) {
@@ -277,6 +286,7 @@ async function listFiles(projectRoot) {
 			files.push({
 				path: relative,
 				collection,
+				...noteMetadata(collection, relative, data),
 				dir: path.dirname(relative).split('/').slice(1).join('/'),
 				name: path.basename(relative),
 				// following 用 name 而不是 title
@@ -311,7 +321,7 @@ async function readFile(projectRoot, relPath) {
 	}
 
 	const { frontmatter, body } = parseMarkdown(raw);
-	return { path: relative, collection, frontmatter, body, url: entryUrl(collection, relative) };
+	return { path: relative, collection, frontmatter, body, url: entryUrl(collection, relative), ...noteMetadata(collection, relative, frontmatter) };
 }
 
 async function writeFile(projectRoot, payload, { mustBeNew }) {
@@ -326,6 +336,9 @@ async function writeFile(projectRoot, payload, { mustBeNew }) {
 
 	if (mustBeNew && exists) throw new HttpError(409, `文件已存在：${relative}`);
 	if (!mustBeNew && !exists) throw new HttpError(404, `文件不存在：${relative}`);
+	if (collection === 'notes' && frontmatter.space !== undefined && !getNoteSpace(frontmatter.space)) {
+		throw new HttpError(422, '请选择有效的笔记分类');
+	}
 
 	for (const field of COLLECTIONS[collection].fields) {
 		if (!field.required) continue;
@@ -338,7 +351,7 @@ async function writeFile(projectRoot, payload, { mustBeNew }) {
 	await fs.mkdir(path.dirname(absolute), { recursive: true });
 	await fs.writeFile(absolute, serializeMarkdown(collection, frontmatter, body), 'utf8');
 
-	return { path: relative, collection, url: entryUrl(collection, relative) };
+	return { path: relative, collection, url: entryUrl(collection, relative), ...noteMetadata(collection, relative, frontmatter) };
 }
 
 /** 删除/移动后清掉留下的空目录，避免侧栏出现空文件夹。collection 根目录本身保留。 */
@@ -412,6 +425,7 @@ async function readJsonBody(req) {
  * @param {string} projectRoot 项目根目录的绝对路径
  */
 export function createEditorApi(projectRoot) {
+	let publishing = false;
 	return async function editorApi(req, res, next) {
 		const url = new URL(req.url ?? '/', 'http://localhost');
 		const route = url.pathname.replace(/\/+$/, '') || '/';
@@ -457,9 +471,27 @@ export function createEditorApi(projectRoot) {
 				});
 			}
 
-			if (req.method === 'POST' && route === '/publish') {
+			if (req.method === 'POST' && (route === '/publish' || route === '/merge-main')) {
 				const body = await readJsonBody(req);
-				return sendJson(res, 200, await publish(projectRoot, { message: body.message, push: body.push === true }));
+				if (publishing) throw new HttpError(409, '已有发布任务正在执行，请稍后重试。');
+				publishing = true;
+				try {
+					if (route === '/merge-main') {
+						const status = await gitStatus(projectRoot);
+						if (!status.branch?.startsWith('codex/')) throw new HttpError(400, '请在 codex/ 分支发布到 main。');
+						let steps = [];
+						if (status.changes.length) {
+							const committed = await publish(projectRoot, { message: body.message, push: false });
+							if (!committed.ok) return sendJson(res, 200, committed);
+							steps = committed.steps;
+						}
+						const merged = await mergeToMain(projectRoot);
+						return sendJson(res, 200, { ...merged, steps: [...steps, ...merged.steps], status: await gitStatus(projectRoot) });
+					}
+					return sendJson(res, 200, await publish(projectRoot, { message: body.message, push: body.push === true }));
+				} finally {
+					publishing = false;
+				}
 			}
 
 			return next();

@@ -1,174 +1,27 @@
 ---
-import { getCollection } from 'astro:content';
 import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
-import { buildNoteSeries } from '../../data/notes';
-
-const allNotes = await getCollection('notes');
-const series = buildNoteSeries(allNotes);
+import { NOTE_SPACES } from '../../data/note-spaces';
 ---
-
 <!doctype html>
-<html lang="zh-CN">
-	<head>
-		<BaseHead title="Notes" description="课程 / 领域学习笔记，按系列组织。" />
-	</head>
-	<body class="home-page">
-		<Header />
-		<main class="notes-page">
-			<header class="page-header">
-				<h1>Notes</h1>
-				<p class="page-intro">课程 / 领域学习笔记 · 按系列组织，可逐篇连读</p>
-			</header>
-
-			<section class="series-grid">
-				{series.map((group) => (
-					<a class="series-card" href={`/notes/${group.firstNoteId}/`}>
-						<div class="series-bar"></div>
-						<div class="series-body">
-							<h2 class="series-name">{group.series}</h2>
-							<p class="series-count">{group.count} 篇 · 持续更新</p>
-							<ul class="series-preview">
-								{group.notes.slice(0, 4).map((note) => (
-									<li>
-										<span class="preview-order">
-											{String(note.data.order ?? 0).padStart(2, '0')}
-										</span>
-										<span class="preview-title">{note.data.title}</span>
-									</li>
-								))}
-							</ul>
-							<span class="series-link">进入系列 →</span>
-						</div>
-					</a>
-				))}
-			</section>
-		</main>
-		<Footer />
-	</body>
+<html lang="en">
+<head><BaseHead title="Notes" description="Notes by topic, and questions worth following" /></head>
+<body class="home-page">
+<Header />
+<main class="notes-page">
+<header class="page-header"><div class="page-title-row"><h1>Notes</h1><span>A PERSONAL NOTEBOOK</span></div><div class="header-rule"></div></header>
+<section class="contents" aria-label="Note spaces">
+<div class="contents-label">CONTENTS</div>
+<div class="space-list">
+{NOTE_SPACES.map((space, index) => <a class="space-row" href={`/notes/${space.slug}/`}><span class="space-index">{String(index + 1).padStart(2, '0')}</span><span class="space-name">{space.slug === 'pretrain' ? 'PreTraining' : space.slug === 'posttrain' ? 'PostTraining' : space.title}</span><span class="space-arrow" aria-hidden="true">→</span></a>)}
+</div>
+</section>
+<footer class="notes-footer"><span>Work in progress · Updated continuously</span></footer>
+</main>
+<Footer />
+</body>
 </html>
-
 <style>
-	.notes-page {
-		max-width: var(--max-width-content);
-		margin: 0 auto;
-		padding: 40px 40px 90px;
-	}
-
-	.page-header {
-		padding: 24px 0 36px;
-	}
-
-	.page-header h1 {
-		margin: 0 0 10px;
-		font-weight: 800;
-		font-size: var(--text-hero-sm);
-		letter-spacing: -0.02em;
-		color: var(--text-heading-dark);
-	}
-
-	.page-intro {
-		font-size: var(--text-2xl);
-		color: var(--text-secondary);
-		font-weight: 300;
-	}
-
-	.series-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-		gap: 22px;
-	}
-
-	.series-card {
-		display: flex;
-		flex-direction: column;
-		background: var(--bg-white);
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-card);
-		overflow: hidden;
-		text-decoration: none;
-		color: inherit;
-		transition:
-			transform 0.18s ease,
-			box-shadow 0.18s ease;
-	}
-
-	.series-card:hover {
-		transform: translateY(-3px);
-		box-shadow: 0 6px 20px rgba(31, 123, 191, 0.15);
-	}
-
-	.series-bar {
-		height: 4px;
-		background: var(--notes-primary);
-	}
-
-	.series-body {
-		padding: 24px 26px 26px;
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-	}
-
-	.series-name {
-		margin: 0 0 6px;
-		font-weight: 700;
-		font-size: var(--text-5xl);
-		letter-spacing: -0.01em;
-		color: var(--text-heading);
-	}
-
-	.series-count {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		color: var(--post-meta);
-		margin-bottom: 18px;
-	}
-
-	.series-preview {
-		list-style: none;
-		margin: 0 0 18px;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		flex: 1;
-	}
-
-	.series-preview li {
-		display: flex;
-		gap: 11px;
-		font-size: var(--text-lg);
-		color: var(--text-secondary);
-	}
-
-	.preview-order {
-		font-family: var(--font-mono);
-		color: var(--text-meta-light);
-		flex-shrink: 0;
-	}
-
-	.preview-title {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.series-link {
-		font-size: var(--text-lg);
-		font-weight: 600;
-		color: var(--notes-primary);
-	}
-
-	@media (max-width: 768px) {
-		.notes-page {
-			padding: 24px 24px 60px;
-		}
-
-		.series-grid {
-			grid-template-columns: 1fr;
-		}
-	}
+.notes-page{max-width:var(--max-width-content);margin:0 auto;padding:40px 40px 90px}.page-header{padding:24px 0 0}.page-title-row{display:flex;align-items:baseline;justify-content:space-between;gap:24px}.page-title-row h1{margin:0;color:var(--text-heading-dark);font-size:32px;font-weight:800}.page-title-row span{color:var(--text-secondary);font-size:15px;letter-spacing:.06em}.header-rule,.notes-footer{border-top:1px solid var(--border-strong)}.header-rule{margin-top:28px}.contents{padding-top:58px}.contents-label{margin-bottom:28px;color:var(--text-secondary);font:600 var(--text-md) var(--font-mono);letter-spacing:.08em}.space-list{border-top:1px solid var(--border-strong)}.space-row{display:grid;grid-template-columns:72px 1fr 30px;align-items:center;min-height:96px;border-bottom:1px solid var(--border-strong);color:inherit;text-decoration:none;transition:padding .18s ease,color .18s ease}.space-row:hover{padding-left:8px;color:var(--notes-primary)}.space-index{color:var(--text-secondary);font:var(--text-md) var(--font-mono)}.space-name{color:var(--text-heading-dark);font-family:var(--font-wenkai);font-size:27px}.space-arrow{color:var(--notes-primary);font-size:25px;text-align:right}.notes-footer{display:flex;justify-content:space-between;margin-top:64px;padding-top:27px;color:var(--text-secondary);font-size:var(--text-md)}@media(max-width:768px){.notes-page{padding:24px 24px 60px}.page-title-row{align-items:flex-start;flex-direction:column;gap:8px}.contents{padding-top:42px}.space-row{grid-template-columns:48px 1fr 24px;min-height:82px}.space-name{font-size:23px}.notes-footer{margin-top:44px}}
 </style>

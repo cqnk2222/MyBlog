@@ -1,5 +1,8 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { NOTE_SPACES } from './data/note-space-config.mjs';
+
+const noteSpaceIds = NOTE_SPACES.map((space) => space.slug) as [string, ...string[]];
 
 const notes = defineCollection({
 	loader: glob({ base: './src/content/notes', pattern: '**/*.{md,mdx}' }),
@@ -9,6 +12,7 @@ const notes = defineCollection({
 			description: z.string(),
 			pubDate: z.coerce.date(),
 			updatedDate: z.coerce.date().optional(),
+			space: z.enum(noteSpaceIds).optional(),
 			section: z.string().optional(), // 用于分组，如 "Transformer 笔记"
 			chapter: z.string().optional(), // 用于显示，如 "01 · 张量与形状"
 			series: z.string().optional(), // 系列名称，用于关联同一系列的笔记

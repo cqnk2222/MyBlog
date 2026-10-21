@@ -1,6 +1,8 @@
 ---
 import { type CollectionEntry, getCollection, render } from 'astro:content';
 import NotesLayout from '../../layouts/NotesLayout.astro';
+import { getSpaceForNote } from '../../data/note-space-config.mjs';
+import { buildSpaceSeries } from '../../data/note-spaces';
 
 export async function getStaticPaths() {
 	const notes = await getCollection('notes');
@@ -15,12 +17,15 @@ type Props = CollectionEntry<'notes'>;
 const note = Astro.props;
 const allNotes = await getCollection('notes');
 
-// 获取同一系列的笔记
-const seriesNotes = note.data.series
+const area = getSpaceForNote(note);
+const topic = area ? buildSpaceSeries(allNotes, area).find(group => group.notes.some(entry => entry.id === note.id)) : undefined;
+
+// 主题目录与文章导航使用相同的分类、系列归属。
+const seriesNotes = topic?.notes ?? (note.data.series
 	? allNotes
 		.filter((n) => n.data.series === note.data.series)
 		.sort((a, b) => (a.data.order || 0) - (b.data.order || 0))
-	: [];
+	: []);
 
 // 获取上一篇和下一篇
 const currentIndex = seriesNotes.findIndex((n) => n.id === note.id);
@@ -30,6 +35,6 @@ const nextNote = currentIndex >= 0 && currentIndex < seriesNotes.length - 1 ? se
 const { Content } = await render(note);
 ---
 
-<NotesLayout entry={note} seriesNotes={seriesNotes} prevNote={prevNote} nextNote={nextNote}>
+<NotesLayout entry={note} area={area} topic={topic} seriesNotes={seriesNotes} prevNote={prevNote} nextNote={nextNote}>
 	<Content />
 </NotesLayout>

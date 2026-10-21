@@ -6,19 +6,22 @@ import Footer from '../components/Footer.astro';
 import FormattedDate from '../components/FormattedDate.astro';
 import NoteTree from '../components/NoteTree.astro';
 import { buildNoteTree } from '../data/notes';
+import type { NoteSpace, NoteSpaceSeries } from '../data/note-spaces';
 
 interface Props {
 	entry: CollectionEntry<'notes'>;
 	seriesNotes?: CollectionEntry<'notes'>[];
 	prevNote?: CollectionEntry<'notes'>;
 	nextNote?: CollectionEntry<'notes'>;
+	area?: NoteSpace;
+	topic?: NoteSpaceSeries;
 }
 
-const { entry, seriesNotes = [], prevNote, nextNote } = Astro.props;
+const { entry, seriesNotes = [], prevNote, nextNote, area, topic } = Astro.props;
 const { title, description, pubDate, section, chapter, series, tags = [], readingTime } = entry.data;
 
 // 获取系列信息
-const seriesTitle = series || section || 'Notes';
+const seriesTitle = topic?.series || series || section || 'Notes';
 const seriesCount = seriesNotes.length;
 const noteTree = buildNoteTree(seriesNotes, entry.id);
 ---
@@ -39,10 +42,16 @@ const noteTree = buildNoteTree(seriesNotes, entry.id);
 			<!-- 面包屑导航 -->
 			<div class="breadcrumb">
 				<a href="/notes">← Notes</a>
-				{series && (
+				{area && (
 					<>
 						<span class="separator">/</span>
-						<span class="current-series">{series}</span>
+						<a href={`/notes/${area.slug}/`}>{area.title}</a>
+					</>
+				)}
+				{(topic || series) && (
+					<>
+						<span class="separator">/</span>
+						{topic ? <a class="current-series" href={topic.href}>{topic.series}</a> : <span class="current-series">{series}</span>}
 					</>
 				)}
 			</div>
@@ -222,7 +231,8 @@ const noteTree = buildNoteTree(seriesNotes, entry.id);
 	.breadcrumb {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		flex-wrap: wrap;
+		row-gap: 8px;
 		padding: 20px 40px;
 		border-bottom: 1px solid var(--border-weak);
 		font-size: var(--text-md);
@@ -236,6 +246,8 @@ const noteTree = buildNoteTree(seriesNotes, entry.id);
 		text-decoration: none;
 		font-weight: 500;
 		transition: color 0.2s ease;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 
 	.breadcrumb a:hover {

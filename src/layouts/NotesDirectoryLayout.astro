@@ -1,0 +1,58 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+
+interface Props {
+	title: string;
+	description: string;
+	backHref: string;
+	backLabel: string;
+	summary: string;
+}
+const { title, description, backHref, backLabel, summary } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head><BaseHead title={`${title} - Notes`} description={description} /></head>
+	<body class="home-page">
+		<Header />
+		<main class="space-page">
+			<a class="back-link" href={backHref}>← {backLabel}</a>
+			<header class="page-header">
+				<div class="page-title-row"><h1>{title}</h1><span>A PERSONAL NOTEBOOK</span></div>
+				<div class="header-rule"></div>
+			</header>
+			<section class="contents" aria-label={`${title} 目录`}>
+				<div class="contents-label">CONTENTS</div>
+				<p class="counts">{summary}</p>
+				<slot />
+			</section>
+			<footer class="notes-footer"><span>Work in progress · Updated continuously</span></footer>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.space-page { max-width: var(--max-width-content); margin: 0 auto; padding: 40px 40px 90px; }
+	.back-link { display: inline-block; color: var(--text-secondary); text-decoration: none; font-size: var(--text-md); }
+	.back-link:hover { color: var(--notes-primary); }
+	.page-header { padding: 24px 0 0; }
+	.page-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+	.page-title-row h1 { min-width: 0; margin: 0; color: var(--text-heading-dark); font-size: 32px; font-weight: 800; overflow-wrap: anywhere; }
+	.page-title-row span { color: var(--text-secondary); font-size: 15px; letter-spacing: .06em; }
+	.header-rule, .notes-footer { border-top: 1px solid var(--border-strong); }
+	.header-rule { margin-top: 28px; }
+	.contents { padding-top: 58px; }
+	.contents-label { margin-bottom: 16px; color: var(--text-secondary); font: 600 var(--text-md) var(--font-mono); letter-spacing: .08em; }
+	.counts { margin: 0 0 28px; color: var(--text-secondary); font: var(--text-sm) var(--font-mono); }
+	.notes-footer { margin-top: 64px; padding-top: 27px; color: var(--text-secondary); font-size: var(--text-md); }
+	@media (max-width: 768px) {
+		.space-page { padding: 24px 24px 60px; }
+		.page-title-row { align-items: flex-start; flex-direction: column; gap: 8px; }
+		.contents { padding-top: 42px; }
+		.notes-footer { margin-top: 44px; }
+	}
+</style>

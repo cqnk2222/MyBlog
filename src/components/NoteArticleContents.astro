@@ -1,0 +1,58 @@
+---
+import type { NoteTreeNode } from '../data/notes';
+
+interface Props { nodes: NoteTreeNode[]; prefix?: string; }
+const { nodes, prefix = '' } = Astro.props;
+function countNotes(node: NoteTreeNode): number {
+	return node.kind === 'item' ? 1 : (node.entry ? 1 : 0) + node.children.reduce((count, child) => count + countNotes(child), 0);
+}
+---
+
+<ol class:list={['note-contents', { nested: Boolean(prefix) }]} aria-label={prefix ? '子笔记目录' : '笔记目录'}>
+	{nodes.map((node, index) => {
+		const number = prefix ? `${prefix}.${String(index + 1).padStart(2, '0')}` : String(index + 1).padStart(2, '0');
+		const entry = node.kind === 'item' ? node : node.entry;
+		return (
+			<li>
+				{entry ? (
+					<a class="contents-row note-entry" href={`/notes/${entry.id}/`}>
+						<span class="entry-index">{number}</span>
+						<span class="entry-title">{node.title}</span>
+						<span class="entry-count">{node.kind === 'group' ? `${countNotes(node)} 篇笔记` : ''}</span>
+						<span class="entry-arrow" aria-hidden="true">→</span>
+					</a>
+				) : (
+					<div class="contents-row folder-heading">
+						<span class="entry-index">{number}</span>
+						<span class="entry-title">{node.title}</span>
+						<span class="entry-count">{countNotes(node)} 篇笔记</span>
+					</div>
+				)}
+				{node.kind === 'group' && <Astro.self nodes={node.children} prefix={number} />}
+			</li>
+		);
+	})}
+</ol>
+
+<style>
+	.note-contents { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-strong); }
+	.note-contents.nested { border-top: 0; padding-left: 20px; }
+	.contents-row { display: grid; grid-template-columns: minmax(72px, max-content) minmax(0, 1fr) 100px 30px; gap: 12px; align-items: center; min-height: 96px; padding: 16px 0; border-bottom: 1px solid var(--border-strong); color: inherit; text-decoration: none; }
+	.note-entry { transition: padding .18s ease, color .18s ease; }
+	.note-entry:hover { padding-left: 8px; color: var(--notes-primary); }
+	.note-entry:focus-visible { outline: 2px solid var(--notes-primary); outline-offset: 4px; }
+	.entry-index { color: var(--text-secondary); font: var(--text-sm) var(--font-mono); }
+	.entry-title { color: var(--text-heading-dark); font-family: var(--font-wenkai); font-size: 27px; line-height: 1.4; overflow-wrap: anywhere; }
+	.entry-count { color: var(--text-secondary); font: var(--text-sm) var(--font-mono); text-align: right; }
+	.entry-arrow { color: var(--notes-primary); font-size: 25px; text-align: right; }
+	.folder-heading .entry-title { font-size: 23px; }
+	@media (max-width: 768px) {
+		.note-contents.nested { padding-left: 12px; }
+		.contents-row { grid-template-columns: minmax(48px, max-content) minmax(0, 1fr) 24px; grid-template-rows: auto auto; gap: 4px 0; min-height: 82px; }
+		.entry-index { grid-column: 1; grid-row: 1 / 3; }
+		.entry-title { grid-column: 2; grid-row: 1; font-size: 23px; }
+		.entry-count { grid-column: 2; grid-row: 2; text-align: left; }
+		.entry-count:empty { display: none; }
+		.entry-arrow { grid-column: 3; grid-row: 1 / 3; }
+	}
+</style>
