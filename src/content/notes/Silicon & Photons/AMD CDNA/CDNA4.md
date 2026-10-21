@@ -7,4 +7,4 @@ series: 'Silicon & Photons'
 order: 1
 ---
 
-CDNA4 的正文从这里开始。
+https://www.amd.com/content/dam/amd/en/documents/instinct-tech-docs/white-papers/amd-cdna-4-architecture-whitepaper.pdf
