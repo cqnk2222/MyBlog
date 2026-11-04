@@ -191,10 +191,14 @@ test('consecutive editor saves keep a changed inferred category without persisti
 	const source = await fs.readFile(new URL('./EditorPage.astro', import.meta.url), 'utf8');
 	const collector = source.slice(source.indexOf('function collectFrontmatter()'), source.indexOf('/* ------------------------------------------------------------- file */'));
 	const saver = source.slice(source.indexOf('async function save('), source.indexOf('async function removeFile('));
+	const orderSync = source.slice(source.indexOf('function syncCurrentOrder('), source.indexOf('function renderTabs('));
 	const spaceInput = { dataset: { key: 'space', type: 'select' }, value: 'pretrain' };
 	const seriesInput = { dataset: { key: 'series', type: 'text' }, value: 'CCL' };
 	const state = { current, preview: 'draft', collapsed: new Set() };
-	const els = { fields: { querySelectorAll: () => [spaceInput, seriesInput], querySelector: () => spaceInput }, body: { value: current.body } };
+	const els = {
+		fields: { querySelectorAll: () => [spaceInput, seriesInput], querySelector: selector => selector.includes('space') ? spaceInput : null },
+		body: { value: current.body }, save: { setAttribute() {} },
+	};
 	const globals = {
 		state, els,
 		api: async (url, options) => {
@@ -207,7 +211,7 @@ test('consecutive editor saves keep a changed inferred category without persisti
 		visibleFiles: () => [], buildTree: files => buildEditorTree(files, { collection: 'notes' }),
 		expandFileAncestors,
 	};
-	const save = Function(...Object.keys(globals), `${collector}\n${saver}\nreturn save;`)(...Object.values(globals));
+	const save = Function(...Object.keys(globals), `${collector}\n${orderSync}\n${saver}\nreturn save;`)(...Object.values(globals));
 	await save();
 	assert.equal(state.current.space, 'ai-infra');
 	assert.equal(state.current.frontmatter.space, undefined);

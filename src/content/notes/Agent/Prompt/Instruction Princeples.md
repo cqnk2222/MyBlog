@@ -1,5 +1,5 @@
 ---
-title: 'Instruction Princeples'
+title: 'Princeples'
 description: 'The First Princeples I used for AI instructions.'
 pubDate: '2026-09-03'
 order: 1

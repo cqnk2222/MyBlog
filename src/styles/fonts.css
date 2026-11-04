@@ -1,0 +1,3 @@
+/* 文章页和写作台共用字体，避免草稿预览回退到不同的等宽字体。 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css');

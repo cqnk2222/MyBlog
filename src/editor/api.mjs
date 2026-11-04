@@ -5,11 +5,15 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { promisify, isDeepStrictEqual } from 'node:util';
 import yaml from 'js-yaml';
 import { COLLECTIONS, fieldOrder } from './schema.mjs';
 import { mergeToMain } from './git-publish.mjs';
+import { IMAGE_DIRECTORY, MAX_IMAGE_BYTES, storeImage } from './image-storage.mjs';
 import { getNoteSpace, getSpaceForNote, seriesNameForSpace } from '../data/note-space-config.mjs';
+import { markdownConfig } from '../markdown/config.mjs';
+import { buildEditorTree } from './note-navigation.mjs';
+import { findSiblingFiles } from './file-order.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -194,7 +198,7 @@ export function estimateReadingTime(body) {
 let processorPromise;
 
 async function renderMarkdown(body) {
-	processorPromise ??= import('@astrojs/markdown-remark').then((module) => module.createMarkdownProcessor({}));
+	processorPromise ??= import('@astrojs/markdown-remark').then((module) => module.createMarkdownProcessor(markdownConfig));
 	const processor = await processorPromise;
 	const result = await processor.render(body);
 	return result.code;
@@ -218,7 +222,7 @@ async function git(projectRoot, args) {
 
 async function gitStatus(projectRoot) {
 	const branch = await git(projectRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-	const status = await git(projectRoot, ['status', '--porcelain', '--', CONTENT_SUBDIR]);
+	const status = await git(projectRoot, ['status', '--porcelain', '--', CONTENT_SUBDIR, IMAGE_DIRECTORY]);
 
 	const changes = status.stdout
 		.split('\n')
@@ -246,13 +250,16 @@ async function publish(projectRoot, { message, push }) {
 
 	const status = await gitStatus(projectRoot);
 	if (status.changes.length === 0) {
-		return { ok: false, steps, status, note: 'src/content 下没有待提交的改动' };
+		return { ok: false, steps, status, note: '没有待提交的笔记或图片改动' };
 	}
 
-	const added = await run(['add', '--', CONTENT_SUBDIR]);
+	const paths = [CONTENT_SUBDIR];
+	const imageFiles = await git(projectRoot, ['ls-files', '--', IMAGE_DIRECTORY]);
+	if (imageFiles.stdout.trim() || await fs.access(path.join(projectRoot, IMAGE_DIRECTORY)).then(() => true, () => false)) paths.push(IMAGE_DIRECTORY);
+	const added = await run(['add', '--', ...paths]);
 	if (!added.ok) return { ok: false, steps, status: await gitStatus(projectRoot) };
 
-	const committed = await run(['commit', '-m', message.trim(), '--', CONTENT_SUBDIR]);
+	const committed = await run(['commit', '-m', message.trim(), '--', ...paths]);
 	if (!committed.ok) return { ok: false, steps, status: await gitStatus(projectRoot) };
 
 	if (push) {
@@ -326,7 +333,7 @@ async function readFile(projectRoot, relPath) {
 
 async function writeFile(projectRoot, payload, { mustBeNew }) {
 	const { absolute, relative, collection } = resolveContentPath(projectRoot, payload.path);
-	const frontmatter = payload.frontmatter ?? {};
+	const frontmatter = { ...(payload.frontmatter ?? {}) };
 	const body = typeof payload.body === 'string' ? payload.body : '';
 
 	const exists = await fs
@@ -336,6 +343,23 @@ async function writeFile(projectRoot, payload, { mustBeNew }) {
 
 	if (mustBeNew && exists) throw new HttpError(409, `文件已存在：${relative}`);
 	if (!mustBeNew && !exists) throw new HttpError(404, `文件不存在：${relative}`);
+	if (!mustBeNew) {
+		const current = parseMarkdown(await fs.readFile(absolute, 'utf8')).frontmatter;
+		const latestOrder = current.order ?? null;
+		const requestedOrder = frontmatter.order ?? null;
+		if (Object.hasOwn(payload, 'originalOrder')) {
+			const originalOrder = payload.originalOrder ?? null;
+			if (requestedOrder === originalOrder) {
+				// Body-only saves from another tab must keep a newer directory sequence.
+				if (latestOrder === null) delete frontmatter.order;
+				else frontmatter.order = latestOrder;
+			} else if (latestOrder !== originalOrder) {
+				throw new HttpError(409, '文章顺序已在其他窗口修改，请重新打开文章后调整顺序');
+			}
+		} else if (requestedOrder !== latestOrder) {
+			throw new HttpError(409, '文章顺序已变化，请重新打开文章后再保存');
+		}
+	}
 	if (collection === 'notes' && frontmatter.space !== undefined && !getNoteSpace(frontmatter.space)) {
 		throw new HttpError(422, '请选择有效的笔记分类');
 	}
@@ -351,7 +375,78 @@ async function writeFile(projectRoot, payload, { mustBeNew }) {
 	await fs.mkdir(path.dirname(absolute), { recursive: true });
 	await fs.writeFile(absolute, serializeMarkdown(collection, frontmatter, body), 'utf8');
 
-	return { path: relative, collection, url: entryUrl(collection, relative), ...noteMetadata(collection, relative, frontmatter) };
+	return { path: relative, collection, url: entryUrl(collection, relative), order: frontmatter.order ?? null, ...noteMetadata(collection, relative, frontmatter) };
+}
+
+/** Change only order metadata, retaining comments, newline style, and the raw body. */
+function patchFileOrder(raw, order) {
+	const match = raw.match(FRONTMATTER_RE);
+	if (!match) throw new HttpError(422, '文件缺少 frontmatter，请先在编辑器中保存文章');
+	parseMarkdown(raw); // Validate the header shape without using the form's date normalization.
+	const frontmatter = yaml.load(match[1]) ?? {};
+	const newline = raw.startsWith('---\r\n') ? '\r\n' : '\n';
+	let header = match[1];
+	const existing = /^(order|'order'|"order")([ \t]*:)([^\r\n]*)/m;
+	const line = header.match(existing);
+	const start = raw.indexOf('\n') + 1;
+	const withHeader = text => raw.slice(0, start) + text + raw.slice(start + match[1].length);
+	const expected = { ...frontmatter, order };
+	try {
+		if (!Object.hasOwn(frontmatter, 'order')) {
+			header += `${newline}order: ${order}`;
+		} else if (line && yaml.load(line[3]) === frontmatter.order && (Number.isFinite(frontmatter.order) || frontmatter.order === null)) {
+			const comment = line[3].match(/[ \t]+#.*$/)?.[0] ?? '';
+			header = header.replace(existing, () => `${line[1]}${line[2]} ${order}${comment}`);
+		}
+		const candidate = withHeader(header);
+		if (isDeepStrictEqual(yaml.load(header), expected)) return candidate;
+	} catch {
+		// Flow mappings, anchors, or multiline values need a header serialization.
+	}
+	header = yaml.dump(expected, { lineWidth: -1, noRefs: true }).trimEnd().replace(/\n/g, newline);
+	const updated = withHeader(header);
+	if (!isDeepStrictEqual(yaml.load(header), expected)) throw new HttpError(422, '无法安全更新文章顺序');
+	return updated;
+}
+
+async function reorderFiles(projectRoot, payload) {
+	const { paths, previousPaths } = payload;
+	if (!Array.isArray(paths) || paths.length < 2 || !Array.isArray(previousPaths) || previousPaths.length !== paths.length) {
+		throw new HttpError(400, '请提供完整的同级文件顺序');
+	}
+	for (const sequence of [paths, previousPaths]) {
+		if (new Set(sequence).size !== sequence.length) throw new HttpError(400, '文件顺序不能包含重复路径');
+		for (const filePath of sequence) {
+			if (resolveContentPath(projectRoot, filePath).relative !== filePath) throw new HttpError(400, '请使用标准文件路径');
+		}
+	}
+	const files = await listFiles(projectRoot);
+	const siblings = findSiblingFiles(buildEditorTree(files), paths[0]);
+	const currentPaths = siblings.map(file => file.path);
+	const sameSequence = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);
+	if (!sameSequence(currentPaths, previousPaths) || paths.some(filePath => !currentPaths.includes(filePath))) {
+		throw new HttpError(409, '同级文件顺序已变化，请刷新目录后重试');
+	}
+
+	// Read and validate every sibling before touching any file.
+	const changes = [];
+	for (const [index, filePath] of paths.entries()) {
+		const { absolute } = resolveContentPath(projectRoot, filePath);
+		const original = await fs.readFile(absolute, 'utf8');
+		const updated = patchFileOrder(original, index + 1);
+		if (original !== updated) changes.push({ absolute, original, updated });
+	}
+	const written = [];
+	try {
+		for (const change of changes) {
+			written.push(change);
+			await fs.writeFile(change.absolute, change.updated, 'utf8');
+		}
+	} catch (error) {
+		await Promise.all(written.map(change => fs.writeFile(change.absolute, change.original, 'utf8')));
+		throw error;
+	}
+	return { orders: paths.map((filePath, index) => ({ path: filePath, order: index + 1 })) };
 }
 
 /** 删除/移动后清掉留下的空目录，避免侧栏出现空文件夹。collection 根目录本身保留。 */
@@ -426,11 +521,22 @@ async function readJsonBody(req) {
  */
 export function createEditorApi(projectRoot) {
 	let publishing = false;
+	let mutating = false;
 	return async function editorApi(req, res, next) {
 		const url = new URL(req.url ?? '/', 'http://localhost');
 		const route = url.pathname.replace(/\/+$/, '') || '/';
 
 		try {
+			if (req.method === 'POST' && route === '/images') {
+				const chunks = [];
+				let size = 0;
+				for await (const chunk of req) {
+					size += chunk.length;
+					if (size > MAX_IMAGE_BYTES) throw new HttpError(413, '单张图片不能超过 10 MiB');
+					chunks.push(chunk);
+				}
+				return sendJson(res, 201, await storeImage(projectRoot, Buffer.concat(chunks)));
+			}
 			if (req.method === 'GET' && route === '/files') {
 				return sendJson(res, 200, { files: await listFiles(projectRoot) });
 			}
@@ -443,24 +549,19 @@ export function createEditorApi(projectRoot) {
 				return sendJson(res, 200, await gitStatus(projectRoot));
 			}
 
-			if (req.method === 'POST' && route === '/save') {
-				const body = await readJsonBody(req);
-				return sendJson(res, 200, await writeFile(projectRoot, body, { mustBeNew: false }));
-			}
-
-			if (req.method === 'POST' && route === '/create') {
-				const body = await readJsonBody(req);
-				return sendJson(res, 201, await writeFile(projectRoot, body, { mustBeNew: true }));
-			}
-
-			if (req.method === 'POST' && route === '/delete') {
-				const body = await readJsonBody(req);
-				return sendJson(res, 200, await deleteFile(projectRoot, body.path));
-			}
-
-			if (req.method === 'POST' && route === '/move') {
-				const body = await readJsonBody(req);
-				return sendJson(res, 200, await moveFile(projectRoot, body.from, body.to));
+			if (req.method === 'POST' && ['/save', '/create', '/delete', '/move', '/reorder'].includes(route)) {
+				if (mutating || publishing) throw new HttpError(409, '文件正在保存或发布，请稍后重试');
+				mutating = true;
+				try {
+					const body = await readJsonBody(req);
+					if (route === '/reorder') return sendJson(res, 200, await reorderFiles(projectRoot, body));
+					if (route === '/delete') return sendJson(res, 200, await deleteFile(projectRoot, body.path));
+					if (route === '/move') return sendJson(res, 200, await moveFile(projectRoot, body.from, body.to));
+					const mustBeNew = route === '/create';
+					return sendJson(res, mustBeNew ? 201 : 200, await writeFile(projectRoot, body, { mustBeNew }));
+				} finally {
+					mutating = false;
+				}
 			}
 
 			if (req.method === 'POST' && route === '/render') {
@@ -473,6 +574,7 @@ export function createEditorApi(projectRoot) {
 
 			if (req.method === 'POST' && (route === '/publish' || route === '/merge-main')) {
 				const body = await readJsonBody(req);
+				if (mutating) throw new HttpError(409, '文件正在保存，请稍后发布');
 				if (publishing) throw new HttpError(409, '已有发布任务正在执行，请稍后重试。');
 				publishing = true;
 				try {
@@ -496,7 +598,7 @@ export function createEditorApi(projectRoot) {
 
 			return next();
 		} catch (error) {
-			const status = error instanceof HttpError ? error.status : 500;
+			const status = error instanceof HttpError || [413, 415].includes(error.status) ? error.status : 500;
 			if (status === 500) console.error('[note-editor]', error);
 			return sendJson(res, status, { error: error.message });
 		}

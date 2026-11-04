@@ -2,6 +2,8 @@
 // 本地写作编辑器。由 src/editor/integration.mjs 在 dev 模式下注入到 /editor，
 // 生产构建不会包含这个页面。
 import '../styles/tokens.css';
+import '../styles/fonts.css';
+import '../styles/code.css';
 import { COLLECTIONS, API_PREFIX } from './schema.mjs';
 import { NOTE_SPACES } from '../data/note-space-config.mjs';
 
@@ -19,8 +21,15 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 	</head>
 
 	<body>
-		<div class="ed-shell">
-			<header class="ed-topbar">
+		<div class="ed-shell" id="editor-shell">
+			<header class="ed-topbar" id="topbar">
+				<button type="button" class="ed-btn ed-sidebar-toggle" id="btn-sidebar" aria-controls="sidebar" aria-expanded="true" aria-label="收起目录" title="收起目录">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+						<rect x="3" y="4" width="18" height="16" rx="2"></rect>
+						<path d="M9 4v16M5.5 8h1M5.5 12h1"></path>
+					</svg>
+					<span>目录</span>
+				</button>
 				<div class="ed-brand">
 					<span class="ed-dot"></span>
 					<span>写作台</span>
@@ -43,10 +52,19 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			</header>
 
 			<main class="ed-body">
-				<aside class="ed-sidebar">
+				<div class="ed-sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+				<aside class="ed-sidebar" id="sidebar" aria-label="内容目录" tabindex="-1">
 					<div class="ed-sidebar-head">
+						<div class="ed-sidebar-heading">
+							<span>内容目录</span>
+							<button type="button" class="ed-sidebar-close" id="btn-sidebar-close" aria-label="收起目录" title="收起目录">×</button>
+						</div>
 						<input type="search" id="search" placeholder="搜索标题或路径…" autocomplete="off" />
-						<button class="ed-btn ed-btn-block" id="btn-new">+ 新建文章</button>
+						<div class="ed-sidebar-tools">
+							<button class="ed-btn ed-btn-block" id="btn-new">+ 新建文章</button>
+							<button type="button" class="ed-btn" id="btn-sort" aria-pressed="false" aria-controls="tree">排序</button>
+						</div>
+						<p class="ed-order-hint" id="order-hint" role="status" hidden>用 ↑ ↓ 调整同级文件，自动保存</p>
 					</div>
 
 					<div class="ed-tabs" id="collection-tabs"></div>
@@ -59,7 +77,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					</div>
 				</aside>
 
-				<section class="ed-main">
+				<section class="ed-main" id="main-pane">
 					<div class="ed-empty" id="empty-state">
 						<h2>选一篇开始写</h2>
 						<p>左侧选择已有文章，或者点「新建文章」。所有改动直接写进 <code>src/content/</code> 的 Markdown 文件。</p>
@@ -84,6 +102,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 							<button data-md="code" title="行内代码">`code`</button>
 							<button data-md="fence" title="代码块">``` 块</button>
 							<button data-md="link" title="链接 ⌘K">链接</button>
+							<button type="button" id="btn-image" title="选择图片，也可在正文直接粘贴或拖入">图片</button>
+							<input type="file" id="image-files" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden />
 							<button data-md="ul" title="无序列表">• 列表</button>
 							<button data-md="quote" title="引用">引用</button>
 							<button data-md="callout" title="插入 callout 提示框">💡 Callout</button>
@@ -91,7 +111,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 							<span class="ed-count" id="count"></span>
 						</div>
 
-						<textarea id="body" spellcheck="false" placeholder="正文（Markdown，支持内嵌 HTML）"></textarea>
+						<textarea id="body" spellcheck="false" placeholder="正文（Markdown，支持直接粘贴或拖入图片）"></textarea>
+						<span id="image-status" class="ed-count" role="status" aria-live="polite"></span>
 					</div>
 				</section>
 
@@ -197,6 +218,9 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 		<script>
 			import { buildEditorTree, expandFileAncestors, getChildNoteContext } from './note-navigation.mjs';
+			import { insertImages } from './image-input.mjs';
+			import { initSidebar } from './sidebar.mjs';
+			import { orderedSiblingFiles, moveSibling } from './file-order.mjs';
 			const { collections: SCHEMA, spaces: NOTE_SPACES, api: API } = window.__EDITOR__;
 
 			const state = {
@@ -205,6 +229,9 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				dirty: false,
 				collection: 'notes',
 				search: '',
+				sorting: false,
+				reordering: false,
+				saving: false,
 				preview: 'draft',
 				newContext: null,
 				newSeriesEdited: false,
@@ -237,6 +264,11 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				gitBranch: $('git-branch'),
 				gitDirty: $('git-dirty'),
 			};
+			const sidebar = initSidebar({
+				document,
+				media: window.matchMedia('(max-width: 960px)'),
+				storage: () => window.localStorage,
+			});
 
 			/* ------------------------------------------------------------ utils */
 
@@ -276,7 +308,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			function setDirty(value) {
 				state.dirty = value;
 				els.unsaved.hidden = !value;
-				els.save.disabled = !value;
+				els.save.disabled = !value || state.reordering || state.saving;
 			}
 
 			/* ------------------------------------------------------------- tree */
@@ -321,13 +353,48 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				return add;
 			}
 
+			function orderButtons(file, siblings) {
+				const controls = document.createElement('span');
+				controls.className = 'ed-order-controls';
+				const index = siblings.findIndex(sibling => sibling.path === file.path);
+				for (const [direction, label, symbol, edge] of [
+					['up', '上移', '↑', index === 0],
+					['down', '下移', '↓', index === siblings.length - 1],
+				]) {
+					const button = document.createElement('button');
+					button.type = 'button';
+					button.textContent = symbol;
+					button.dataset.orderPath = file.path;
+					button.dataset.direction = direction;
+					button.setAttribute('aria-label', `${label} ${file.title}`);
+					button.title = `${label} ${file.title}`;
+					button.disabled = edge || state.reordering;
+					button.addEventListener('click', () => reorderSibling(file, siblings, direction));
+					controls.append(button);
+				}
+				return controls;
+			}
+
 			function renderNode(node, depth) {
 				const list = document.createElement('ul');
 				list.className = 'ed-tree-list';
-
-				const dirs = [...node.dirs.values()].sort((a, b) =>
+				const siblings = orderedSiblingFiles(node);
+				const plainDirs = [...node.dirs.values()].filter(dir => !dir.entry).sort((a, b) =>
 					(a.sortOrder ?? 99) - (b.sortOrder ?? 99) || a.name.localeCompare(b.name, 'zh-Hans-CN'));
-				for (const dir of dirs) {
+				const parentDirs = new Map([...node.dirs.values()].filter(dir => dir.entry).map(dir => [dir.entry.path, dir]));
+				const rows = [...plainDirs.map(dir => ({ dir })), ...siblings.map(file => ({ file, dir: parentDirs.get(file.path) }))];
+				for (const { dir, file } of rows) {
+					if (!dir) {
+						const item = document.createElement('li');
+						const row = document.createElement('div');
+						row.className = 'ed-file-row';
+						row.append(fileButton(file));
+						if (state.sorting && siblings.length > 1) row.append(orderButtons(file, siblings));
+						else if (!state.sorting && file.collection === 'notes') row.append(childButton(file));
+						item.append(row);
+						list.append(item);
+						continue;
+					}
 					const open = !state.collapsed.has(dir.key) || Boolean(state.search.trim());
 					const item = document.createElement('li');
 
@@ -370,8 +437,14 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 						event.stopPropagation();
 						openNewDialog({ collection: dir.collection, dir: dir.dir, space: dir.space });
 					});
-					if (dir.entry) folderRow.append(toggle, fileButton(dir.entry), childButton(dir.entry));
-					else folderRow.append(toggle, add);
+					if (dir.entry) {
+						folderRow.append(toggle, fileButton(dir.entry));
+						if (state.sorting && siblings.length > 1) folderRow.append(orderButtons(dir.entry, siblings));
+						else if (!state.sorting) folderRow.append(childButton(dir.entry));
+					} else {
+						folderRow.append(toggle);
+						if (!state.sorting) folderRow.append(add);
+					}
 					item.append(folderRow);
 					if (open) {
 						if (!dir.dirs.size && !dir.files.length) {
@@ -384,38 +457,77 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					list.append(item);
 				}
 
-				const files = node.files.sort((a, b) => {
-					if (a.order !== null && b.order !== null && a.order !== b.order) return a.order - b.order;
-					return a.title.localeCompare(b.title, 'zh-Hans-CN');
-				});
-
-				for (const file of files) {
-					const item = document.createElement('li');
-					const row = document.createElement('div');
-					row.className = 'ed-file-row';
-					row.append(fileButton(file));
-					if (file.collection === 'notes') row.append(childButton(file));
-					item.append(row);
-					list.append(item);
-				}
-
 				return list;
 			}
 
 			function renderTree() {
+				const sortButton = $('btn-sort');
+				sortButton.textContent = state.sorting ? '完成' : '排序';
+				sortButton.setAttribute('aria-pressed', String(state.sorting));
+				sortButton.disabled = Boolean(state.search.trim()) || state.reordering;
+				els.search.disabled = state.reordering;
+				sortButton.title = state.search.trim() ? '清空搜索后调整顺序' : '调整同级文件顺序';
+				$('order-hint').hidden = !state.sorting;
+				$('order-hint').textContent = state.reordering ? '正在保存顺序…' : '用 ↑ ↓ 调整同级文件，自动保存';
+				els.tree.setAttribute('aria-busy', String(state.reordering));
 				const files = visibleFiles();
 				const tree = buildTree(files);
-				els.tree.replaceChildren();
+				const scrollTop = els.tree.scrollTop;
 
 				if (!tree.dirs.size && !tree.files.length) {
 					const empty = document.createElement('p');
 					empty.className = 'ed-tree-empty';
 					empty.textContent = '没有匹配的文件';
-					els.tree.append(empty);
+					els.tree.replaceChildren(empty);
 					return;
 				}
 
-				els.tree.append(renderNode(tree, 0));
+				els.tree.replaceChildren(renderNode(tree, 0));
+				els.tree.scrollTop = scrollTop;
+			}
+
+			async function reorderSibling(file, siblings, direction) {
+				if (state.reordering) return;
+				if (state.dirty || state.saving) return toast('请先保存当前文章，再调整顺序', 'error');
+				if (uploadingImages) return toast('请等待图片上传完成，再调整顺序', 'error');
+				const previousPaths = siblings.map(sibling => sibling.path);
+				const paths = moveSibling(previousPaths, file.path, direction);
+				state.reordering = true;
+				els.editor.inert = true;
+				renderTree();
+				try {
+					const { orders } = await api('/reorder', { method: 'POST', body: JSON.stringify({ paths, previousPaths }) });
+					const orderByPath = new Map(orders.map(entry => [entry.path, entry.order]));
+					state.files = state.files.map(entry => orderByPath.has(entry.path) ? { ...entry, order: orderByPath.get(entry.path) } : entry);
+					if (state.current && orderByPath.has(state.current.path)) {
+						syncCurrentOrder(orderByPath.get(state.current.path));
+					}
+					toast('文件顺序已保存');
+					loadGit().catch(error => toast(error.message, 'error'));
+				} catch (error) {
+					toast(error.message, 'error');
+					await loadFiles().then(() => {
+						const current = state.files.find(entry => entry.path === state.current?.path);
+						if (current) syncCurrentOrder(current.order);
+					}).catch(() => {});
+				} finally {
+					state.reordering = false;
+					els.editor.inert = false;
+					setDirty(state.dirty);
+					renderTree();
+					const buttons = [...els.tree.querySelectorAll('[data-order-path]')].filter(button => button.dataset.orderPath === file.path && !button.disabled);
+					const button = buttons.find(button => button.dataset.direction === direction) ?? buttons[0];
+					button?.focus({ preventScroll: true });
+					button?.scrollIntoView({ block: 'nearest' });
+				}
+			}
+
+			function syncCurrentOrder(order) {
+				if (!state.current) return;
+				if (order === null || order === undefined) delete state.current.frontmatter.order;
+				else state.current.frontmatter.order = order;
+				const input = els.fields.querySelector('[data-key="order"]');
+				if (input) input.value = order ?? '';
 			}
 
 			function renderTabs() {
@@ -594,6 +706,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			async function openFile(path) {
+				if (state.reordering) return toast('正在保存文件顺序，请稍候', 'error');
+				if (state.saving) return toast('正在保存文章，请稍候', 'error');
 				if (state.dirty && !confirm('当前文件有未保存的改动，确定要切换吗？')) return;
 
 				const file = await api(`/file?path=${encodeURIComponent(path)}`);
@@ -616,19 +730,25 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				renderTree();
 				updateCount();
 				refreshPreview();
+				sidebar.onFileOpened();
 			}
 
 			async function save({ silent = false } = {}) {
 				if (!state.current) return;
-
+				if (state.reordering) return toast('正在保存文件顺序，请稍候', 'error');
+				if (state.saving) return;
+				state.saving = true;
+				els.save.setAttribute('aria-busy', 'true');
+				setDirty(state.dirty);
 				try {
 					const frontmatter = collectFrontmatter();
 					const result = await api('/save', {
 						method: 'POST',
-						body: JSON.stringify({ path: state.current.path, frontmatter, body: els.body.value }),
+						body: JSON.stringify({ path: state.current.path, frontmatter, body: els.body.value, originalOrder: state.current.frontmatter.order ?? null }),
 					});
 
 					state.current.frontmatter = frontmatter;
+					syncCurrentOrder(result.order);
 					state.current.space = result.space;
 					state.current.groupSeries = result.groupSeries;
 					const spaceInput = els.fields.querySelector('[data-key="space"]');
@@ -644,6 +764,10 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					if (state.preview === 'page') els.frame.contentWindow?.location.reload();
 				} catch (error) {
 					toast(error.message, 'error');
+				} finally {
+					state.saving = false;
+					els.save.setAttribute('aria-busy', 'false');
+					setDirty(state.dirty);
 				}
 			}
 
@@ -750,6 +874,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 			function surround(before, after = before) {
 				const area = els.body;
+				if (area.readOnly) return;
 				const { selectionStart: start, selectionEnd: end, value } = area;
 				const selected = value.slice(start, end);
 				area.value = value.slice(0, start) + before + selected + after + value.slice(end);
@@ -760,6 +885,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 			function prefixLines(prefix) {
 				const area = els.body;
+				if (area.readOnly) return;
 				const { selectionStart: start, selectionEnd: end, value } = area;
 				const lineStart = value.lastIndexOf('\n', start - 1) + 1;
 				const block = value.slice(lineStart, end);
@@ -966,13 +1092,14 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			async function openPublishDialog() {
+				if (uploadingImages) return toast('请等待图片上传完成再发布', 'error');
 				if (state.dirty) return toast('请先保存当前笔记再发布', 'error');
 				await loadGit();
 				$('publish-main').disabled = !state.git.branch?.startsWith('codex/');
 
 				const branch = state.git.branch || '(unknown)';
 				$('publish-branch').innerHTML =
-					`当前分支 <strong>${branch}</strong>。只会提交 <code>src/content/</code> 下的改动。` +
+					`当前分支 <strong>${branch}</strong>。提交笔记及 <code>public/images/notes/</code> 下的图片与清单。` +
 					(branch === 'main' ? '' : ' <em>非 main 分支，push 后通常只产生预览部署。</em>');
 
 				const changes = $('publish-changes');
@@ -995,6 +1122,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 			async function runPublish(event, toMain = false) {
 				event.preventDefault();
+				if (uploadingImages) return toast('请等待图片上传完成再发布', 'error');
 
 				const message = $('publish-message').value.trim();
 				const push = $('publish-push').checked;
@@ -1046,10 +1174,69 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				autosave();
 			}
 
+			let uploadingImages = false;
+			async function addImages(files) {
+				if (!files.length) return;
+				if (!state.current) return toast('请先打开一篇笔记', 'error');
+				if (uploadingImages) return toast('图片正在上传，请稍候', 'error');
+				const current = state.current;
+				uploadingImages = true;
+				$('image-status').textContent = `正在保存 ${files.length} 张图片…`;
+				$('btn-image').disabled = true;
+				try {
+					await insertImages({
+						area: els.body, files, onInsert: onBodyInput,
+						isCurrent: () => state.current === current,
+						upload: async (file) => api('/images', {
+							method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+						}),
+					});
+					$('image-status').textContent = '图片已插入，保存笔记后可一起发布';
+					await loadGit();
+				} catch (error) {
+					$('image-status').textContent = error.message;
+					toast(error.message, 'error');
+				} finally {
+					uploadingImages = false;
+					$('btn-image').disabled = false;
+				}
+			}
+
+			els.body.addEventListener('paste', (event) => {
+				const files = Array.from(event.clipboardData?.items || [])
+					.filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+					.map(item => item.getAsFile()).filter(Boolean);
+				if (!files.length) return;
+				event.preventDefault();
+				addImages(files);
+			});
+			els.body.addEventListener('dragover', (event) => {
+				if (Array.from(event.dataTransfer?.items || []).some(item => item.kind === 'file')) event.preventDefault();
+			});
+			els.body.addEventListener('drop', (event) => {
+				const files = Array.from(event.dataTransfer?.files || []);
+				if (!files.length) return;
+				event.preventDefault();
+				// Drop inserts at the existing caret without replacing selected prose.
+				els.body.setSelectionRange(els.body.selectionStart, els.body.selectionStart);
+				addImages(files);
+			});
+			$('btn-image').addEventListener('click', () => $('image-files').click());
+			$('image-files').addEventListener('change', (event) => {
+				addImages(Array.from(event.target.files || []));
+				event.target.value = '';
+			});
+
 			els.body.addEventListener('input', onBodyInput);
 			els.fields.addEventListener('input', autosave);
 			els.search.addEventListener('input', () => {
 				state.search = els.search.value;
+				state.sorting = false;
+				renderTree();
+			});
+			$('btn-sort').addEventListener('click', () => {
+				if (!state.sorting && state.dirty) return toast('请先保存当前文章，再调整顺序', 'error');
+				state.sorting = !state.sorting;
 				renderTree();
 			});
 
@@ -1190,9 +1377,29 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			.ed-shell {
+				--ed-sidebar-width: 260px;
 				display: flex;
 				flex-direction: column;
 				height: 100vh;
+				height: 100dvh;
+			}
+
+			.ed-shell[data-sidebar-open='false'] {
+				--ed-sidebar-width: 0px;
+			}
+
+			.ed-sidebar-toggle {
+				flex-shrink: 0;
+			}
+
+			.ed-sidebar-toggle svg {
+				flex-shrink: 0;
+			}
+
+			.ed-sidebar-toggle[aria-expanded='true'] {
+				background: var(--notes-bg-light);
+				border-color: var(--notes-primary);
+				color: var(--notes-primary-dark);
 			}
 
 			/* ------------------------------------------------------------ topbar */
@@ -1357,12 +1564,15 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				flex: 1;
 				min-height: 0;
 				display: grid;
-				grid-template-columns: 260px minmax(420px, 1fr) minmax(360px, 0.9fr);
+				grid-template-columns: var(--ed-sidebar-width) minmax(0, 1fr) minmax(0, 0.9fr);
 			}
 
 			.ed-sidebar {
+				grid-column: 1;
+				grid-row: 1;
 				display: flex;
 				flex-direction: column;
+				min-width: 0;
 				min-height: 0;
 				background: var(--bg-sidebar);
 				border-right: 1px solid var(--border-strong);
@@ -1374,6 +1584,109 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				gap: 9px;
 				padding: 14px;
 				border-bottom: 1px solid var(--border-weak);
+			}
+
+			.ed-sidebar-heading {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				color: var(--text-tertiary);
+				font-size: var(--text-sm);
+				font-weight: 600;
+			}
+
+			.ed-sidebar-tools {
+				display: flex;
+				gap: 6px;
+			}
+
+			.ed-sidebar-tools #btn-new {
+				flex: 1;
+				min-width: 0;
+				width: auto;
+			}
+
+			#btn-sort {
+				flex-shrink: 0;
+				padding-inline: 10px;
+			}
+
+			#btn-sort[aria-pressed='true'] {
+				background: var(--notes-bg-light);
+				border-color: var(--notes-primary);
+				color: var(--notes-primary-dark);
+			}
+
+			.ed-order-hint {
+				margin: 0;
+				font-size: var(--text-xs);
+				color: var(--text-meta);
+				line-height: 1.5;
+			}
+
+			.ed-order-controls {
+				display: inline-flex;
+				flex: 0 0 auto;
+				gap: 2px;
+				padding-right: 2px;
+			}
+
+			.ed-order-controls button {
+				width: 24px;
+				height: 28px;
+				padding: 0;
+				border: 1px solid var(--border-button);
+				border-radius: var(--radius-sm);
+				background: var(--bg-white);
+				color: var(--notes-primary-dark);
+				font-size: 15px;
+			}
+
+			.ed-order-controls button:hover:not(:disabled) {
+				background: var(--notes-bg-light);
+				border-color: var(--notes-primary);
+			}
+
+			.ed-order-controls button:disabled {
+				opacity: 0.35;
+				cursor: default;
+			}
+
+			.ed-order-controls button:focus-visible {
+				outline: 2px solid var(--notes-primary);
+				outline-offset: 1px;
+			}
+
+			.ed-sidebar-close {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 30px;
+				height: 30px;
+				border: 1px solid transparent;
+				border-radius: var(--radius-md);
+				background: transparent;
+				color: var(--text-meta);
+				font-size: 22px;
+				line-height: 1;
+			}
+
+			.ed-sidebar-close:hover {
+				background: var(--notes-bg-light);
+				color: var(--notes-primary-dark);
+			}
+
+			.ed-sidebar-toggle:focus-visible,
+			.ed-sidebar-close:focus-visible {
+				outline: 2px solid var(--notes-primary);
+				outline-offset: 2px;
+			}
+
+			.ed-sidebar-backdrop {
+				position: fixed;
+				inset: 0;
+				z-index: 30;
+				background: rgb(16 25 31 / 28%);
 			}
 
 			.ed-sidebar-head input {
@@ -1562,6 +1875,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			/* ------------------------------------------------------------ editor */
 
 			.ed-main {
+				grid-column: 2;
+				grid-row: 1;
 				display: flex;
 				flex-direction: column;
 				min-width: 0;
@@ -1761,6 +2076,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			/* ----------------------------------------------------------- preview */
 
 			.ed-preview {
+				grid-column: 3;
+				grid-row: 1;
 				display: flex;
 				flex-direction: column;
 				min-width: 0;
@@ -1871,22 +2188,6 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				padding-left: 16px;
 				border-left: 3px solid var(--notes-border);
 				color: var(--text-secondary);
-			}
-
-			.prose pre {
-				margin: 0 0 26px;
-				padding: 16px 18px;
-				border-radius: var(--radius-md);
-				overflow-x: auto;
-				font-size: var(--text-base-plus);
-				line-height: 1.7;
-			}
-
-			.prose :not(pre) > code {
-				padding: 2px 6px;
-				border-radius: 4px;
-				background: var(--bg-code-light);
-				font-size: 0.88em;
 			}
 
 			.prose img {
@@ -2043,12 +2344,77 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			@media (max-width: 1200px) {
+				.ed-shell {
+					--ed-sidebar-width: 220px;
+				}
+
 				.ed-body {
-					grid-template-columns: 220px 1fr;
+					grid-template-columns: var(--ed-sidebar-width) minmax(0, 1fr);
 				}
 
 				.ed-preview {
 					display: none;
+				}
+			}
+
+			@media (max-width: 960px) {
+				.ed-body {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.ed-main {
+					grid-column: 1;
+				}
+
+				.ed-sidebar {
+					position: fixed;
+					inset: 0 auto 0 0;
+					z-index: 31;
+					width: min(320px, calc(100vw - 40px));
+					box-shadow: 8px 0 32px rgb(16 25 31 / 15%);
+				}
+
+				.ed-topbar {
+					gap: 12px;
+					padding: 0 12px;
+				}
+
+				.ed-badge,
+				.ed-actions kbd {
+					display: none;
+				}
+
+				.ed-actions {
+					gap: 6px;
+				}
+
+				.ed-topbar .ed-btn {
+					padding: 7px 10px;
+				}
+			}
+
+			@media (max-width: 640px) {
+				.ed-brand {
+					display: none;
+				}
+			}
+
+			@media (max-width: 480px) {
+				.ed-topbar {
+					height: auto;
+					min-height: 52px;
+					flex-wrap: wrap;
+					gap: 8px;
+					padding: 10px 12px;
+				}
+
+				.ed-crumb {
+					order: 3;
+					flex-basis: 100%;
+				}
+
+				.ed-actions {
+					margin-left: auto;
 				}
 			}
 		</style>

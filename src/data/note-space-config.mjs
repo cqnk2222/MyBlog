@@ -27,6 +27,7 @@ export const NOTE_SPACES = [
 		description: '支撑训练与推理的系统、通信、算子和硬件。',
 		series: ['CCL'],
 		pathPrefixes: [
+			{ prefix: 'nccl/', series: 'NCCL' },
 			{ prefix: 'vllm/', series: 'vLLM' },
 			{ prefix: 'kernel/flashattention/', series: 'FlashAttention' },
 			{ prefix: 'silicon--photons/', series: 'Silicon & Photons' },
@@ -47,7 +48,7 @@ export function getNoteSpace(slug) {
 
 /** @param {Note} note @param {NoteSpace} space */
 function pathSeries(note, space) {
-	return space.pathPrefixes.find(({ prefix }) => note.id.startsWith(prefix))?.series;
+	return space.pathPrefixes.find(({ prefix }) => note.id.startsWith(prefix) || note.id === prefix.replace(/\/$/, ''))?.series;
 }
 
 /** An explicit editor choice takes precedence over legacy series/path inference.

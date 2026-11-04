@@ -190,13 +190,6 @@ export function buildNoteTree(notes: NoteEntry[], currentId: string): NoteTreeNo
 		});
 	}
 
-	return sortTreeNodes(root);
-}
-
-/** Book directories retain each parent article alongside its nested chapters. */
-export function buildNoteContents(notes: NoteEntry[]): NoteTreeNode[] {
-	const prefix = getSharedPathPrefix(notes);
-	const tree = buildNoteTree(notes, '');
 	function pairParents(nodes: NoteTreeNode[]): NoteTreeNode[] {
 		const paired = new Set<NoteTreeNode>();
 		for (const node of nodes) {
@@ -206,14 +199,20 @@ export function buildNoteContents(notes: NoteEntry[]): NoteTreeNode[] {
 			if (parent) {
 				node.entry = parent;
 				node.title = parent.title;
-				node.order = Math.min(node.order, parent.order);
+				node.order = parent.order;
+				node.active = node.active || parent.active;
 				paired.add(parent);
 			}
 			node.children = pairParents(node.children);
 		}
 		return nodes.filter((node) => !paired.has(node));
 	}
-	return sortTreeNodes(pairParents(tree));
+	return sortTreeNodes(pairParents(root));
+}
+
+/** Book directories and article sidebars share the same parent/child hierarchy. */
+export function buildNoteContents(notes: NoteEntry[]): NoteTreeNode[] {
+	return buildNoteTree(notes, '');
 }
 
 export function buildNoteSections(notes: NoteEntry[]): NoteSectionGroup[] {

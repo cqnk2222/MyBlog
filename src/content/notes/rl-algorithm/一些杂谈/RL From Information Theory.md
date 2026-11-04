@@ -7,4 +7,6 @@ series: 'RL Algorithm'
 order: 1
 ---
 
+[**One View from Beren Millidge**](https://www.beren.io/2026-07-26-How-Can-LLM-RL-Work-Despite-Information-Theoretic-Inefficiency/)
 
+> **bits 的数量 ≠ bits 对目标任务的有效性。**

@@ -13,6 +13,16 @@ const { nodes, level = 0 } = Astro.props;
 	{nodes.map((node) => (
 		node.kind === 'group' ? (
 			<li class:list={['tree-group', { active: node.active }]} data-note-group>
+				{node.entry ? (
+					<div class:list={['tree-parent-row', { 'has-current': node.entry.active }]}>
+						<a href={`/notes/${node.entry.id}/`} class:list={['tree-link', { active: node.entry.active }]} aria-current={node.entry.active ? 'page' : undefined}>
+							<span>{node.title}</span>
+						</a>
+						<button class="tree-toggle tree-parent-toggle" type="button" data-note-toggle aria-expanded={node.active ? 'true' : 'false'} aria-label={`展开或收起 ${node.title} 的子页面`}>
+							<span class="tree-arrow" aria-hidden="true">⌄</span>
+						</button>
+					</div>
+				) : (
 				<button
 					class:list={['tree-toggle', { active: node.active }]}
 					type="button"
@@ -22,6 +32,7 @@ const { nodes, level = 0 } = Astro.props;
 					<span class="tree-folder">{node.title}</span>
 					<span class="tree-arrow" aria-hidden="true">⌄</span>
 				</button>
+				)}
 				<div class:list={['tree-panel', { open: node.active }]} data-note-panel>
 					<Astro.self nodes={node.children} level={level + 1} />
 				</div>
@@ -91,6 +102,35 @@ const { nodes, level = 0 } = Astro.props;
 		align-items: center;
 		padding: 8px 11px;
 		text-decoration: none;
+	}
+
+	.tree-parent-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 30px;
+		align-items: stretch;
+		border-radius: var(--radius-md);
+	}
+
+	.tree-parent-row:hover {
+		background: #f0f4f7;
+	}
+
+	.tree-parent-row.has-current {
+		background: var(--notes-bg-light);
+		box-shadow: inset 3px 0 0 var(--notes-primary);
+	}
+
+	.tree-parent-row > .tree-link {
+		min-width: 0;
+		width: auto;
+		background: transparent;
+		box-shadow: none;
+	}
+
+	.tree-parent-toggle {
+		width: 30px;
+		justify-content: center;
+		padding: 7px;
 	}
 
 	.tree-toggle:hover,

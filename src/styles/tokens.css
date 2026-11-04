@@ -78,9 +78,15 @@
   --code-bg: #0f1820;
   --code-border: #1b2730;
   --code-dot: #2a3741;
-  --code-text: #aeb9c2;
-  --code-comment: #7d8b95;
+  --code-text: #d6e0e8;
+  --code-comment: #8b9aa7;
   --code-keyword: #56b6c2;
+  --code-string: #b6d99d;
+  --code-constant: #e6c38b;
+  --code-function: #9ac5f4;
+  --code-parameter: #dbc0e6;
+  --code-punctuation: #aebfcd;
+  --code-red: #e2969b;
   --code-topbar: #0b1218;
   --code-topbar-border: #18222b;
 

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "assets": {
+    "f637048f77e3e0076f57e22938a6b3520f8191f7d095cb8ffc32b2289776e03b": {
+      "id": "f637048f77e3e0076f57e22938a6b3520f8191f7d095cb8ffc32b2289776e03b",
+      "provider": "repository",
+      "path": "public/images/notes/f637048f77e3e0076f57e22938a6b3520f8191f7d095cb8ffc32b2289776e03b.png",
+      "url": "/images/notes/f637048f77e3e0076f57e22938a6b3520f8191f7d095cb8ffc32b2289776e03b.png",
+      "remoteUrl": null,
+      "bytes": 102236,
+      "width": 958,
+      "height": 1172
+    }
+  }
+}
