@@ -1,8 +1,10 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { NOTE_SPACES } from './data/note-space-config.mjs';
+import { FOLLOWING_CATEGORIES, followingEntryId } from './data/following-config.mjs';
 
 const noteSpaceIds = NOTE_SPACES.map((space) => space.slug) as [string, ...string[]];
+const followingCategoryIds = FOLLOWING_CATEGORIES.map((category) => category.slug) as [string, ...string[]];
 
 const notes = defineCollection({
 	loader: glob({ base: './src/content/notes', pattern: '**/*.{md,mdx}' }),
@@ -51,17 +53,18 @@ const thoughts = defineCollection({
 });
 
 /**
- * 我在关注的博客 / 研究团队 / AI Lab。
- * 每条一个文件，正文写 1~3 句「为什么关注」，全部渲染在 /following 一个页面上，
- * 不生成单条详情页。
+ * 持续回访的来源。
+ * 每条一个文件，正文写 1~3 句「为什么关注」。按 category 渲染到分类页，
+ * 标签由用户自由填写，不生成单条详情页。
  */
 const following = defineCollection({
-	loader: glob({ base: './src/content/following', pattern: '**/*.{md,mdx}' }),
+	loader: glob({ base: './src/content/following', pattern: '**/*.{md,mdx}', generateId: ({ entry }) => followingEntryId(entry) }),
 	schema: () =>
 		z.object({
 			name: z.string(),
 			url: z.string().url(),
-			kind: z.enum(['blog', 'group', 'lab', 'newsletter', 'friend']),
+			category: z.enum(followingCategoryIds),
+			previewImage: z.string().optional(),
 			org: z.string().optional(), // 所属机构，个人博客一般留空
 			tags: z.array(z.string()).default([]),
 			rss: z.string().url().optional(),

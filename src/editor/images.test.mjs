@@ -33,6 +33,21 @@ test('binary image upload deduplicates and records migration metadata', async t 
  assert.equal(manifest.assets[first.body.id].remoteUrl,null);
 });
 
+test('Following screenshots use their own storage and manifest while Notes uploads remain unchanged', async t => {
+ const {root,request,upload}=await fixture(t); const bytes=await png();
+ const screenshot=await request('POST','/images?collection=following',bytes);
+ assert.equal(screenshot.status,201);
+ assert.match(screenshot.body.url,/^\/images\/following\/[a-f0-9]{64}\.png$/);
+ const again=await request('POST','/images?collection=following',bytes);
+ assert.equal(again.body.url,screenshot.body.url);
+ const note=await upload(bytes);
+ assert.match(note.body.url,/^\/images\/notes\//);
+ const manifest=JSON.parse(await fs.readFile(path.join(root,'public/images/following/manifest.json'),'utf8'));
+ assert.equal(Object.keys(manifest.assets).length,1);
+ assert.equal(manifest.assets[screenshot.body.id].url,screenshot.body.url);
+ assert.equal((await request('POST','/images?collection=../../outside',bytes)).status,400);
+});
+
 test('publish commits assets and manifest together with notes, excluding code changes',async t=>{
  const {root,upload,request}=await fixture(t);
  const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
@@ -42,12 +57,15 @@ test('publish commits assets and manifest together with notes, excluding code ch
  await fs.writeFile(path.join(root,'code.js'),'original');
  git('add','.');git('commit','-m','base');
  const {body:asset}=await upload(await png());
+ const {body:preview}=await request('POST','/images?collection=following',await png());
  await fs.writeFile(path.join(root,'src/content/notes/test.md'),`![test](${asset.url})`);
  await fs.writeFile(path.join(root,'code.js'),'unrelated work');
  const result=await request('POST','/publish',Buffer.from(JSON.stringify({message:'images',push:false})));
  assert.equal(result.body.ok,true,JSON.stringify(result));
  assert.equal(git('show',`HEAD:${asset.path}`).length>0,true);
  assert.equal(git('show','HEAD:public/images/notes/manifest.json').includes(asset.id),true);
+ assert.equal(git('show','HEAD:public/images/following/manifest.json').includes(preview.id),true);
+ assert.equal(git('show',`HEAD:${preview.path}`).length>0,true);
  assert.equal(git('show','HEAD:code.js'),'original');
  assert.equal(git('status','--porcelain'),'M code.js');
 });

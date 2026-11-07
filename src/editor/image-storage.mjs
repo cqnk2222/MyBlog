@@ -4,6 +4,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 
 export const IMAGE_DIRECTORY = 'public/images/notes';
+export const FOLLOWING_IMAGE_DIRECTORY = 'public/images/following';
+export const IMAGE_DIRECTORIES = [IMAGE_DIRECTORY, FOLLOWING_IMAGE_DIRECTORY];
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const pending = new Map();
 const fail = (status, message) => Object.assign(new Error(message), {status});
@@ -12,14 +14,15 @@ const fail = (status, message) => Object.assign(new Error(message), {status});
  * A future object-storage provider implements put; existing Markdown can be migrated
  * using manifest.assets[id].url -> remoteUrl without changing editor insertion logic.
  */
-export function repositoryImageStorage(root) {
- return {async put({id, bytes, extension}) {
-  const relative = `${IMAGE_DIRECTORY}/${id}.${extension}`;
+export function repositoryImageStorage(root, directory = IMAGE_DIRECTORY) {
+ if (!IMAGE_DIRECTORIES.includes(directory)) throw fail(400, '图片目录不受支持');
+ return {directory, async put({id, bytes, extension}) {
+  const relative = `${directory}/${id}.${extension}`;
   await fs.mkdir(path.dirname(path.join(root, relative)), {recursive:true});
   await fs.writeFile(path.join(root, relative), bytes, {flag:'wx'}).catch(error => {
    if (error.code !== 'EEXIST') throw error;
   });
-  return {provider:'repository',path:relative,url:`/images/notes/${id}.${extension}`,remoteUrl:null};
+  return {provider:'repository',path:relative,url:`${directory.slice('public'.length)}/${id}.${extension}`,remoteUrl:null};
  }};
 }
 
@@ -41,7 +44,7 @@ export async function storeImage(root, bytes, storage = repositoryImageStorage(r
  const previous = pending.get(root) ?? Promise.resolve();
  const task = previous.catch(() => {}).then(async () => {
   const asset = await storage.put({id,bytes,extension});
-  const file = path.join(root, IMAGE_DIRECTORY, 'manifest.json');
+  const file = path.join(root, storage.directory ?? IMAGE_DIRECTORY, 'manifest.json');
   let manifest;
   try { manifest = JSON.parse(await fs.readFile(file,'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; manifest = {version:1,assets:{}}; }

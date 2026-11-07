@@ -1,7 +1,7 @@
 ---
 name: 'Chip Huyen'
 url: 'https://huyenchip.com/'
-kind: 'blog'
+category: 'engineering'
 rss: 'https://huyenchip.com/feed.xml'
 addedDate: '2026-08-24'
 active: true

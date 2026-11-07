@@ -1,7 +1,8 @@
 import { NOTE_SPACES, getSpaceForNote } from '../data/note-space-config.mjs';
+import { FOLLOWING_CATEGORIES, getFollowingCategory } from '../data/following-config.mjs';
 
-function directory(name, key, collection, dir = '', space = null) {
-	return { name, key, collection, dir, space, dirs: new Map(), files: [] };
+function directory(name, key, collection, dir = '', space = null, category = null) {
+	return { name, key, collection, dir, space, category, dirs: new Map(), files: [] };
 }
 
 /** Keep the parent at its original URL and create a directory beside its file. */
@@ -41,6 +42,7 @@ function attachParentEntries(node) {
 export function buildEditorTree(files, { collection = 'all', search = '' } = {}) {
 	const root = { dirs: new Map(), files: [] };
 	let notesRoot;
+	let followingRoot;
 	if (files.some(file => file.collection === 'notes') || (!search.trim() && ['all', 'notes'].includes(collection))) {
 		notesRoot = collection === 'notes' ? root : directory('Notes', 'notes', 'notes');
 		if (notesRoot !== root) root.dirs.set('notes', notesRoot);
@@ -51,6 +53,18 @@ export function buildEditorTree(files, { collection = 'all', search = '' } = {})
 			node.sortOrder = index;
 			node.count = members.length;
 			notesRoot.dirs.set(space.slug, node);
+		}
+	}
+	if (files.some(file => file.collection === 'following') || (!search.trim() && ['all', 'following'].includes(collection))) {
+		followingRoot = collection === 'following' ? root : directory('Following', 'following', 'following');
+		if (followingRoot !== root) root.dirs.set('following', followingRoot);
+		for (const [index, category] of FOLLOWING_CATEGORIES.entries()) {
+			const members = files.filter(file => file.collection === 'following' && file.category === category.slug);
+			if (search.trim() && !members.length) continue;
+			const node = directory(category.title, `following@${category.slug}`, 'following', '', null, category.slug);
+			node.sortOrder = index;
+			node.count = members.length;
+			followingRoot.dirs.set(category.slug, node);
 		}
 	}
 
@@ -65,6 +79,15 @@ export function buildEditorTree(files, { collection = 'all', search = '' } = {})
 				notesRoot.dirs.set(space, unknown);
 			}
 			node = notesRoot.dirs.get(space);
+		} else if (file.collection === 'following') {
+			const category = getFollowingCategory(file.category)?.slug || 'unclassified';
+			if (!followingRoot.dirs.has(category)) {
+				const unknown = directory('未分类', 'following@unclassified', 'following');
+				unknown.count = files.filter(file => file.collection === 'following' && !getFollowingCategory(file.category)).length;
+				unknown.sortOrder = FOLLOWING_CATEGORIES.length;
+				followingRoot.dirs.set(category, unknown);
+			}
+			node = followingRoot.dirs.get(category);
 		} else {
 			if (!root.dirs.has(file.collection)) root.dirs.set(file.collection, directory(file.collection, file.collection, file.collection));
 			node = root.dirs.get(file.collection);
@@ -74,7 +97,7 @@ export function buildEditorTree(files, { collection = 'all', search = '' } = {})
 		let dir = '';
 		for (const segment of file.path.split('/').slice(1, -1)) {
 			dir = dir ? `${dir}/${segment}` : segment;
-			if (!node.dirs.has(segment)) node.dirs.set(segment, directory(segment, `${prefix}/${dir}`, file.collection, dir, file.space));
+			if (!node.dirs.has(segment)) node.dirs.set(segment, directory(segment, `${prefix}/${dir}`, file.collection, dir, file.space, node.category));
 			node = node.dirs.get(segment);
 		}
 		node.files.push(file);

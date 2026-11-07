@@ -1,7 +1,7 @@
 ---
 name: 'Andrej Karpathy'
 url: 'https://karpathy.bearblog.dev/'
-kind: 'blog'
+category: 'research'
 addedDate: '2026-08-24'
 active: true
 tags:

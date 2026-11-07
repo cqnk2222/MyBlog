@@ -1,7 +1,7 @@
 ---
 name: 'Ahead of AI'
 url: 'https://magazine.sebastianraschka.com/'
-kind: 'newsletter'
+category: 'research'
 org: 'Sebastian Raschka'
 rss: 'https://magazine.sebastianraschka.com/feed'
 addedDate: '2026-08-24'

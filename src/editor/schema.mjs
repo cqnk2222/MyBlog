@@ -4,6 +4,7 @@
  * 新增 collection 字段时，记得同步修改 content.config.ts。
  */
 import { NOTE_SPACES } from '../data/note-space-config.mjs';
+import { FOLLOWING_CATEGORIES } from '../data/following-config.mjs';
 
 /** 编辑器接口挂载的前缀，页面和 dev 中间件共用。 */
 export const API_PREFIX = '/__note-editor';
@@ -61,9 +62,9 @@ export const COLLECTIONS = {
 		label: 'Following',
 		dir: 'following',
 		routeBase: '/following',
-		// 所有条目渲染在 /following 一个页面上，没有单条详情页
+		// 条目渲染在所属分类页，没有单条详情页
 		singlePage: true,
-		newBody: '为什么关注：\n',
+		newBody: '',
 		fields: [
 			{ key: 'name', label: '名称', type: 'text', required: true, primary: true },
 			{
@@ -72,27 +73,20 @@ export const COLLECTIONS = {
 				type: 'text',
 				required: true,
 				placeholder: 'https://example.com',
-				// 新建时先占位，否则 zod 的 url() 校验会让整个站构建失败
-				newDefault: 'https://example.com',
 			},
 			{
-				key: 'kind',
-				label: '类型',
+				key: 'category',
+				label: '关注分类',
 				type: 'select',
 				required: true,
-				options: [
-					{ value: 'blog', label: '个人博客' },
-					{ value: 'newsletter', label: 'Newsletter' },
-					{ value: 'group', label: '研究团队' },
-					{ value: 'lab', label: 'AI Lab' },
-					{ value: 'friend', label: '友链' },
-				],
+				options: FOLLOWING_CATEGORIES.map(category => ({ value: category.slug, label: category.title })),
 			},
 			{ key: 'org', label: '所属机构', type: 'text', suggest: 'org', placeholder: '个人博客可留空' },
+			{ key: 'previewImage', label: '网站截图', type: 'image', placeholder: 'https://example.com/screenshot.webp（可选）', help: '上传截图，或填写图片直链。主页链接不会自动生成截图。' },
 			{ key: 'rss', label: 'RSS', type: 'text', placeholder: 'https://…/feed.xml' },
 			{ key: 'addedDate', label: '添加日期', type: 'date', required: true },
 			{ key: 'active', label: '仍在更新', type: 'boolean', newDefault: true },
-			{ key: 'tags', label: 'Tags', type: 'tags' },
+			{ key: 'tags', label: '标签', type: 'tags', placeholder: '自行填写，用逗号分隔' },
 		],
 	},
 };

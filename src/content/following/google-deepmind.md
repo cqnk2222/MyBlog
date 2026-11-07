@@ -1,7 +1,7 @@
 ---
 name: 'Google DeepMind'
 url: 'https://deepmind.google/research/'
-kind: 'lab'
+category: 'research'
 org: 'Google'
 addedDate: '2026-08-24'
 active: true

@@ -198,6 +198,7 @@ test('consecutive editor saves keep a changed inferred category without persisti
 	const els = {
 		fields: { querySelectorAll: () => [spaceInput, seriesInput], querySelector: selector => selector.includes('space') ? spaceInput : null },
 		body: { value: current.body }, save: { setAttribute() {} },
+		openPage: { href: current.url },
 	};
 	const globals = {
 		state, els,
@@ -215,6 +216,7 @@ test('consecutive editor saves keep a changed inferred category without persisti
 	await save();
 	assert.equal(state.current.space, 'ai-infra');
 	assert.equal(state.current.frontmatter.space, undefined);
+	assert.equal(els.openPage.href, '/notes/custom/a/');
 	els.body.value += '\nBody-only edit';
 	await save();
 	assert.equal(state.current.space, 'ai-infra');

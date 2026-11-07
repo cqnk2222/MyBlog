@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "assets": {
+    "25d58c56da05f006102a8b360db80e25bf7e166fa022ac7eed1591df576189d6": {
+      "id": "25d58c56da05f006102a8b360db80e25bf7e166fa022ac7eed1591df576189d6",
+      "provider": "repository",
+      "path": "public/images/following/25d58c56da05f006102a8b360db80e25bf7e166fa022ac7eed1591df576189d6.webp",
+      "url": "/images/following/25d58c56da05f006102a8b360db80e25bf7e166fa022ac7eed1591df576189d6.webp",
+      "remoteUrl": null,
+      "bytes": 60656,
+      "width": 1658,
+      "height": 1013
+    },
+    "30c58b950b6395c06ae02f58b9b742e6a40aa17934c31937191749be4f12815f": {
+      "id": "30c58b950b6395c06ae02f58b9b742e6a40aa17934c31937191749be4f12815f",
+      "provider": "repository",
+      "path": "public/images/following/30c58b950b6395c06ae02f58b9b742e6a40aa17934c31937191749be4f12815f.webp",
+      "url": "/images/following/30c58b950b6395c06ae02f58b9b742e6a40aa17934c31937191749be4f12815f.webp",
+      "remoteUrl": null,
+      "bytes": 101536,
+      "width": 1600,
+      "height": 900
+    },
+    "675cb6436b8730091451284e12b99ac6143a25c5636f63fa5124d0db74ea9b35": {
+      "id": "675cb6436b8730091451284e12b99ac6143a25c5636f63fa5124d0db74ea9b35",
+      "provider": "repository",
+      "path": "public/images/following/675cb6436b8730091451284e12b99ac6143a25c5636f63fa5124d0db74ea9b35.webp",
+      "url": "/images/following/675cb6436b8730091451284e12b99ac6143a25c5636f63fa5124d0db74ea9b35.webp",
+      "remoteUrl": null,
+      "bytes": 32992,
+      "width": 1200,
+      "height": 608
+    },
+    "a4fa206f6af0da28f041108bb4250e7b9b42f3153e707ccdc399786f9965eae0": {
+      "id": "a4fa206f6af0da28f041108bb4250e7b9b42f3153e707ccdc399786f9965eae0",
+      "provider": "repository",
+      "path": "public/images/following/a4fa206f6af0da28f041108bb4250e7b9b42f3153e707ccdc399786f9965eae0.webp",
+      "url": "/images/following/a4fa206f6af0da28f041108bb4250e7b9b42f3153e707ccdc399786f9965eae0.webp",
+      "remoteUrl": null,
+      "bytes": 41626,
+      "width": 1600,
+      "height": 820
+    }
+  }
+}

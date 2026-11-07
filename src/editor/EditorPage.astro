@@ -85,7 +85,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 					<div class="ed-editor" id="editor-pane" hidden>
 						<details class="ed-meta" id="meta-box" open>
-							<summary>Frontmatter</summary>
+							<summary id="meta-title">Frontmatter</summary>
 							<div class="ed-fields" id="fields"></div>
 							<div class="ed-meta-foot">
 								<button class="ed-btn ed-btn-quiet" id="btn-new-child" hidden>新建子笔记 / 章节</button>
@@ -144,6 +144,50 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					<select id="new-collection"></select>
 				</label>
 
+				<label>
+					<span id="new-title-label">标题</span>
+					<input id="new-title" autocomplete="off" />
+				</label>
+
+				<div class="ed-following-fields" id="new-following-fields" hidden>
+					<label>
+						<span>关注分类</span>
+						<select id="new-following-category"></select>
+					</label>
+					<label>
+						<span>主页链接</span>
+						<input id="new-following-url" type="url" placeholder="https://example.com" autocomplete="url" />
+					</label>
+					<label>
+						<span>标签（可选）</span>
+						<input id="new-following-tags" placeholder="自行填写，用逗号分隔" autocomplete="off" />
+					</label>
+					<label>
+						<span>为什么关注（可留空）</span>
+						<textarea id="new-following-note" rows="3" placeholder="写几句你关注这个来源的理由，支持 Markdown。"></textarea>
+					</label>
+					<details id="new-following-media">
+						<summary>网站截图（可选）</summary>
+						<label>
+							<span>图片直链</span>
+							<input id="new-following-preview" placeholder="https://example.com/screenshot.webp" />
+							<small id="new-following-preview-hint">上传截图，或填写图片直链。主页链接不会自动生成截图。</small>
+						</label>
+						<label>
+							<span>上传图片</span>
+							<input id="new-following-preview-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+						</label>
+						<p id="new-following-preview-status" class="ed-image-status" role="status"></p>
+					</details>
+					<details id="new-following-more">
+						<summary>RSS 订阅（可选）</summary>
+						<label>
+							<span>RSS 地址</span>
+							<input id="new-following-rss" type="url" placeholder="https://example.com/feed.xml" />
+						</label>
+					</details>
+				</div>
+
 				<label id="new-space-field">
 					<span>笔记分类</span>
 					<select id="new-space"></select>
@@ -160,21 +204,16 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					<input id="new-order" type="number" step="any" />
 				</label>
 
-				<label>
+				<label id="new-dir-field">
 					<span>目录（相对 collection，可留空）</span>
 					<input id="new-dir" list="dir-list" placeholder="CCL/02_algorithm_space" autocomplete="off" />
 					<datalist id="dir-list"></datalist>
 				</label>
 
 				<label>
-					<span>文件名</span>
+					<span id="new-slug-label">文件名</span>
 					<input id="new-slug" autocomplete="off" />
 					<small id="new-path-hint"></small>
-				</label>
-
-				<label>
-					<span id="new-title-label">标题</span>
-					<input id="new-title" autocomplete="off" />
 				</label>
 
 				<p class="ed-dialog-error" id="new-error" hidden></p>
@@ -204,7 +243,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				</label>
 
 				<pre class="ed-log" id="publish-log" hidden></pre>
-				<p class="ed-dialog-note">发布到 main 会先提交笔记，再合并当前 codex 分支的全部已提交内容。其他未提交的代码不包含在内。冲突时停止，当前编辑分支保持不变。</p>
+				<p class="ed-dialog-note">发布到 main 会先提交内容与图片，再合并当前 codex 分支的全部已提交内容。其他未提交的代码不包含在内。冲突时停止，当前编辑分支保持不变。</p>
 
 				<menu>
 					<button type="button" class="ed-btn" data-close="dlg-publish">关闭</button>
@@ -221,6 +260,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			import { insertImages } from './image-input.mjs';
 			import { initSidebar } from './sidebar.mjs';
 			import { orderedSiblingFiles, moveSibling } from './file-order.mjs';
+			import { buildFollowingDraft, followingFilePath, validateFollowingPreview } from './following-input.mjs';
+			import { applyPreviewImage } from './preview-image-input.mjs';
 			const { collections: SCHEMA, spaces: NOTE_SPACES, api: API } = window.__EDITOR__;
 
 			const state = {
@@ -430,12 +471,13 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					add.type = 'button';
 					add.className = 'ed-folder-add';
 					add.textContent = '+';
-					add.title = '在此文件夹新建文章';
+					const following = dir.collection === 'following';
+					add.title = following ? '在此分类添加关注' : '在此文件夹新建文章';
 					const creationLabel = dir.count !== undefined ? dir.name : [dir.collection, dir.dir].filter(Boolean).join('/');
-					add.setAttribute('aria-label', `在 ${creationLabel} 新建文章`);
+					add.setAttribute('aria-label', `在 ${creationLabel} ${following ? '添加关注' : '新建文章'}`);
 					add.addEventListener('click', (event) => {
 						event.stopPropagation();
-						openNewDialog({ collection: dir.collection, dir: dir.dir, space: dir.space });
+						openNewDialog({ collection: dir.collection, dir: dir.dir, space: dir.space, category: dir.category });
 					});
 					if (dir.entry) {
 						folderRow.append(toggle, fileButton(dir.entry));
@@ -450,7 +492,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 						if (!dir.dirs.size && !dir.files.length) {
 							const empty = document.createElement('p');
 							empty.className = 'ed-tree-empty';
-							empty.textContent = '暂无笔记，点 + 开始写';
+						empty.textContent = following ? '暂无来源，点 + 添加关注' : '暂无笔记，点 + 开始写';
 							item.append(empty);
 						} else item.append(renderNode(dir, depth + 1));
 					}
@@ -531,6 +573,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			function renderTabs() {
+				$('btn-new').textContent = state.collection === 'following' ? '+ 添加关注' : '+ 新建文章';
 				els.tabs.replaceChildren();
 				const options = [['all', '全部'], ...Object.entries(SCHEMA).map(([key, value]) => [key, value.label])];
 
@@ -626,6 +669,45 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 					input.addEventListener('input', () => setDirty(true));
 					row.append(input);
+					if (field.type === 'image') {
+						const current = state.current;
+						const help = document.createElement('small');
+						help.className = 'ed-image-help';
+						const updateHint = () => {
+							let message = '';
+							try { if (input.value.trim()) validateFollowingPreview(input.value.trim(), els.fields.querySelector('[data-key="url"]')?.value); }
+							catch (error) { message = error.message; }
+							help.textContent = message || field.help;
+							input.setCustomValidity?.(message);
+						};
+						input.addEventListener('input', updateHint);
+						help.textContent = field.help;
+						wrap.append(help);
+						const file = document.createElement('input');
+						file.type = 'file';
+						file.accept = 'image/png,image/jpeg,image/webp,image/gif';
+						file.hidden = true;
+						const button = document.createElement('button');
+						button.type = 'button';
+						button.className = 'ed-btn ed-btn-quiet ed-btn-inline';
+						button.textContent = '上传截图';
+						button.addEventListener('click', () => file.click());
+						file.addEventListener('change', async () => {
+							if (!file.files?.[0]) return;
+							if (state.saving) { file.value = ''; return toast('正在保存来源，请稍后上传截图', 'error'); }
+							button.disabled = true;
+							button.textContent = '上传中…';
+							try {
+								await applyPreviewImage({ file: file.files[0], input, upload: uploadFollowingPreview,
+									isCurrent: () => state.current === current && input.isConnected,
+									onChange: () => { updateHint(); setDirty(true); autosave(); } });
+								toast('截图已上传，保存来源后生效');
+								await loadGit();
+							} catch (error) { toast(error.message, 'error'); }
+							finally { button.disabled = false; button.textContent = '上传截图'; file.value = ''; }
+						});
+						row.append(button, file);
+					}
 
 					if (field.type === 'date') {
 						const picker = document.createElement('input');
@@ -721,6 +803,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				els.crumb.textContent = file.path;
 				history.replaceState(null, '', '#' + file.path); // 刷新后停在同一篇
 				els.body.value = file.body;
+				els.body.placeholder = file.collection === 'following' ? '为什么关注这个来源？可以写几句介绍或记录。' : '正文（Markdown，支持直接粘贴或拖入图片）';
+				$('meta-title').textContent = file.collection === 'following' ? '来源信息' : 'Frontmatter';
 				els.openPage.href = file.url;
 				els.openPage.hidden = false;
 				$('btn-new-child').hidden = file.collection !== 'notes';
@@ -737,6 +821,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				if (!state.current) return;
 				if (state.reordering) return toast('正在保存文件顺序，请稍候', 'error');
 				if (state.saving) return;
+				if (els.fields.querySelector('[data-type="image"]')?.readOnly) return toast('请等待截图上传完成后保存', 'error');
 				state.saving = true;
 				els.save.setAttribute('aria-busy', 'true');
 				setDirty(state.dirty);
@@ -748,6 +833,8 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					});
 
 					state.current.frontmatter = frontmatter;
+					state.current.url = result.url;
+					els.openPage.href = result.url;
 					syncCurrentOrder(result.order);
 					state.current.space = result.space;
 					state.current.groupSeries = result.groupSeries;
@@ -761,7 +848,10 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 					expandFileAncestors(buildTree(visibleFiles()), state.current.path, state.collapsed);
 					renderTree();
 					await loadGit();
-					if (state.preview === 'page') els.frame.contentWindow?.location.reload();
+					if (state.preview === 'page') {
+						if (els.frame.dataset.src !== state.current.url) refreshPreview();
+						else els.frame.contentWindow?.location.reload();
+					}
 				} catch (error) {
 					toast(error.message, 'error');
 				} finally {
@@ -942,15 +1032,21 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				const collection = $('new-collection').value;
 				const dir = $('new-dir').value.trim().replace(/^\/+|\/+$/g, '');
 				const slug = $('new-slug').value.trim().replace(/^\/+|\/+$/g, '');
+				if (collection === 'following') {
+					try {
+						return followingFilePath({ name: $('new-title').value, filename: slug, dir, existingPaths: state.files.map(file => file.path) });
+					} catch { return ''; }
+				}
 				if (!slug) return '';
 				const name = /\.mdx?$/.test(slug) ? slug : `${slug}.md`;
 				return [collection, dir, name].filter(Boolean).join('/');
 			}
 
-			function openNewDialog({ collection: initialCollection, dir: initialDir, space: initialSpace,
+			function openNewDialog({ collection: initialCollection, dir: initialDir, space: initialSpace, category: initialCategory,
 				series: initialSeries, section: initialSection, order: initialOrder, parentPath, parentTitle } = {}) {
 				state.newContext = parentPath ? { parentPath, section: initialSection } : null;
 				state.newSeriesEdited = false;
+				state.newDialogVersion = (state.newDialogVersion ?? 0) + 1;
 				const select = $('new-collection');
 				select.replaceChildren(
 					...Object.entries(SCHEMA).map(([key, value]) => {
@@ -962,6 +1058,28 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				);
 				select.value = initialCollection || (state.collection !== 'all' ? state.collection : state.current?.collection) || 'notes';
 				select.disabled = Boolean(parentPath);
+				const categoryField = SCHEMA.following.fields.find(field => field.key === 'category');
+				$('new-following-category').replaceChildren(...categoryField.options.map(item => {
+					const option = document.createElement('option');
+					option.value = item.value;
+					option.textContent = item.label;
+					return option;
+				}));
+				$('new-following-category').value = initialCategory
+					|| (state.current?.collection === 'following' ? state.current.frontmatter.category : null)
+					|| SCHEMA.following.fields.find(field => field.key === 'category').options[0].value;
+				$('new-following-url').value = '';
+				$('new-following-rss').value = '';
+				$('new-following-note').value = '';
+				$('new-following-tags').value = '';
+				$('new-following-preview').value = '';
+				$('new-following-preview').setCustomValidity?.('');
+				$('new-following-preview').readOnly = false;
+				$('new-following-preview-file').value = '';
+				$('new-following-preview-status').textContent = '';
+				$('new-following-preview-hint').textContent = SCHEMA.following.fields.find(field => field.key === 'previewImage').help;
+				$('new-following-media').open = false;
+				$('new-following-more').open = false;
 				$('new-space').replaceChildren(...NOTE_SPACES.map(space => {
 					const option = document.createElement('option');
 					option.value = space.slug;
@@ -1012,6 +1130,19 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 			/** following 用「名称」，其它 collection 用「标题」。 */
 			function syncNewDialogLabel() {
+				const following = $('new-collection').value === 'following';
+				$('new-following-fields').hidden = !following;
+				$('new-following-url').required = following;
+				$('new-following-url').disabled = !following;
+				$('new-following-rss').disabled = !following;
+				$('new-following-preview').disabled = !following;
+				$('new-following-preview-file').disabled = !following;
+				$('new-dir-field').hidden = following;
+				$('new-slug-label').textContent = following ? '文件名（可留空）' : '文件名';
+				$('new-slug').placeholder = following ? '根据名称自动生成' : '';
+				$('new-title').placeholder = following ? '例如：Lilian Weng' : '';
+				$('new-dialog-title').textContent = state.newContext ? '新建子笔记 / 章节' : following ? '添加关注' : '新建文章';
+				$('new-submit').textContent = following ? '添加' : '创建';
 				$('new-space-field').hidden = $('new-collection').value !== 'notes';
 				$('new-series-field').hidden = $('new-collection').value !== 'notes';
 				$('new-order-field').hidden = $('new-collection').value !== 'notes';
@@ -1021,59 +1152,63 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			async function createFile(event) {
-				const path = newFilePath();
-				const title = $('new-title').value.trim();
-				const error = $('new-error');
-
-				if (!path || !title) {
-					event.preventDefault();
-					error.textContent = '文件名和标题都要填。';
-					error.hidden = false;
-					return;
-				}
-
 				event.preventDefault();
-
+				const error = $('new-error');
+				error.hidden = true;
 				const collection = $('new-collection').value;
 				const spec = SCHEMA[collection];
 
-				// 按 schema 生成初始 frontmatter，保证新文件一建出来就能通过 zod 校验
-				const frontmatter = {};
-				for (const field of spec.fields) {
-					if (field.newDefault !== undefined) frontmatter[field.key] = field.newDefault;
-					else if (field.primary) frontmatter[field.key] = title;
-					else if (field.type === 'tags') frontmatter[field.key] = [];
-					else if (field.type === 'select') frontmatter[field.key] = field.options[0].value;
-					else if (field.type === 'date' && field.required) frontmatter[field.key] = today();
-					else if (field.required) frontmatter[field.key] = title;
-				}
-				if (collection === 'notes') {
-					if ($('new-space').value) frontmatter.space = $('new-space').value;
-					else delete frontmatter.space;
-					const series = $('new-series').value.trim();
-					if (series) frontmatter.series = series;
-					if (state.newContext?.section) frontmatter.section = state.newContext.section;
-					const order = $('new-order').value.trim();
-					if (order) {
-						if (!Number.isFinite(Number(order))) {
-							error.textContent = '章节顺序需要是数字。';
-							error.hidden = false;
-							return;
-						}
-						frontmatter.order = Number(order);
-					}
-				}
-
 				try {
-					await api('/create', {
-						method: 'POST',
-						body: JSON.stringify({ path, frontmatter, body: spec.newBody ?? `${title} 的正文从这里开始。\n` }),
-					});
+					let draft;
+					if (collection === 'following') {
+						if ($('new-following-preview').readOnly) throw new Error('请等待截图上传完成');
+						draft = buildFollowingDraft({
+							name: $('new-title').value,
+							url: $('new-following-url').value,
+							category: $('new-following-category').value,
+							tags: $('new-following-tags').value,
+							previewImage: $('new-following-preview').value,
+							rss: $('new-following-rss').value,
+							note: $('new-following-note').value,
+							filename: $('new-slug').value,
+							dir: $('new-dir').value,
+							existingPaths: state.files.map(file => file.path),
+							addedDate: today(),
+						});
+					} else {
+						const path = newFilePath();
+						const title = $('new-title').value.trim();
+						if (!path || !title) throw new Error('文件名和标题都要填。');
+						const frontmatter = {};
+						for (const field of spec.fields) {
+							if (field.newDefault !== undefined) frontmatter[field.key] = field.newDefault;
+							else if (field.primary) frontmatter[field.key] = title;
+							else if (field.type === 'tags') frontmatter[field.key] = [];
+							else if (field.type === 'select') frontmatter[field.key] = field.options[0].value;
+							else if (field.type === 'date' && field.required) frontmatter[field.key] = today();
+							else if (field.required) frontmatter[field.key] = title;
+						}
+						if (collection === 'notes') {
+							if ($('new-space').value) frontmatter.space = $('new-space').value;
+							else delete frontmatter.space;
+							const series = $('new-series').value.trim();
+							if (series) frontmatter.series = series;
+							if (state.newContext?.section) frontmatter.section = state.newContext.section;
+							const order = $('new-order').value.trim();
+							if (order) {
+								if (!Number.isFinite(Number(order))) throw new Error('章节顺序需要是数字。');
+								frontmatter.order = Number(order);
+							}
+						}
+						draft = { path, frontmatter, body: spec.newBody ?? `${title} 的正文从这里开始。\n` };
+					}
+
+					await api('/create', { method: 'POST', body: JSON.stringify(draft) });
 					$('dlg-new').close();
 					await loadFiles();
-					await openFile(path);
+					await openFile(draft.path);
 					await loadGit();
-					toast('已创建 ' + path);
+					toast(collection === 'following' ? '已添加关注 ' + draft.frontmatter.name : '已创建 ' + draft.path);
 				} catch (requestError) {
 					error.textContent = requestError.message;
 					error.hidden = false;
@@ -1099,7 +1234,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 
 				const branch = state.git.branch || '(unknown)';
 				$('publish-branch').innerHTML =
-					`当前分支 <strong>${branch}</strong>。提交笔记及 <code>public/images/notes/</code> 下的图片与清单。` +
+					`当前分支 <strong>${branch}</strong>。提交内容及其图片与清单。` +
 					(branch === 'main' ? '' : ' <em>非 main 分支，push 后通常只产生预览部署。</em>');
 
 				const changes = $('publish-changes');
@@ -1162,6 +1297,37 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			/* ------------------------------------------------------------ wiring */
+			for (const id of ['new-following-preview', 'new-following-url']) {
+				$(id).addEventListener('input', () => {
+					const input = $('new-following-preview');
+					let message = '';
+					try { if (input.value.trim()) validateFollowingPreview(input.value.trim(), $('new-following-url').value); }
+					catch (error) { message = error.message; }
+					input.setCustomValidity(message);
+					$('new-following-preview-hint').textContent = message || SCHEMA.following.fields.find(field => field.key === 'previewImage').help;
+				});
+			}
+			function uploadFollowingPreview(file) {
+				return api('/images?collection=following', {
+					method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+				});
+			}
+			$('new-following-preview-file').addEventListener('change', async (event) => {
+				const file = event.target.files?.[0];
+				if (!file) return;
+				const version = state.newDialogVersion;
+				const input = $('new-following-preview');
+				const status = $('new-following-preview-status');
+				const isCurrent = () => state.newDialogVersion === version && $('dlg-new').open;
+				status.textContent = '正在上传截图…';
+				try {
+					await applyPreviewImage({ file, input, upload: uploadFollowingPreview, isCurrent,
+						onChange: () => { input.setCustomValidity(''); $('new-following-preview-hint').textContent = SCHEMA.following.fields.find(field => field.key === 'previewImage').help; } });
+					if (isCurrent()) status.textContent = '截图已就绪，添加关注时保存';
+					await loadGit();
+				} catch (error) { if (isCurrent()) status.textContent = error.message; }
+				finally { if (isCurrent()) event.target.value = ''; }
+			});
 
 			const autosave = debounce(() => {
 				if (els.autosave.checked && state.dirty) save({ silent: true });
@@ -1256,7 +1422,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				button.addEventListener('click', () => $(button.dataset.close).close());
 			}
 
-			for (const input of [$('new-collection'), $('new-dir'), $('new-slug')]) {
+			for (const input of [$('new-collection'), $('new-dir'), $('new-slug'), $('new-title')]) {
 				input.addEventListener('input', () => {
 					if (input.id === 'new-dir') syncNewSeriesFromDirectory();
 					$('new-path-hint').textContent = newFilePath() ? `→ src/content/${newFilePath()}` : '';
@@ -1949,7 +2115,7 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 				min-width: 0;
 			}
 
-			.ed-field-textarea {
+			.ed-field-textarea, .ed-field-image {
 				grid-column: 1 / -1;
 			}
 
@@ -2258,12 +2424,20 @@ const bootstrap = JSON.stringify({ collections: COLLECTIONS, spaces: NOTE_SPACES
 			}
 
 			.ed-dialog input:not([type='checkbox']),
-			.ed-dialog select {
+			.ed-dialog select,
+			.ed-dialog textarea {
 				padding: 8px 11px;
 				border: 1px solid var(--border-button-alt);
 				border-radius: var(--radius-sm);
 				font-size: var(--text-md);
 			}
+
+			.ed-following-fields { display: flex; flex-direction: column; gap: 14px; }
+			.ed-dialog textarea { font-family: inherit; line-height: 1.6; resize: vertical; }
+			.ed-following-fields details summary { color: var(--text-secondary); font-size: var(--text-sm); cursor: pointer; }
+			.ed-following-fields details label { margin-top: 10px; }
+			.ed-image-status { margin: 8px 0 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; overflow-wrap: anywhere; }
+			.ed-image-help { color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; }
 
 			.ed-dialog small {
 				font-family: var(--font-mono);

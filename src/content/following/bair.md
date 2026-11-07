@@ -1,7 +1,7 @@
 ---
 name: 'BAIR Blog'
 url: 'https://bair.berkeley.edu/blog/'
-kind: 'group'
+category: 'research'
 org: 'UC Berkeley'
 rss: 'https://bair.berkeley.edu/blog/feed.xml'
 addedDate: '2026-08-24'

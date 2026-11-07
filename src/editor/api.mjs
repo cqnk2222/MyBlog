@@ -9,11 +9,13 @@ import { promisify, isDeepStrictEqual } from 'node:util';
 import yaml from 'js-yaml';
 import { COLLECTIONS, fieldOrder } from './schema.mjs';
 import { mergeToMain } from './git-publish.mjs';
-import { IMAGE_DIRECTORY, MAX_IMAGE_BYTES, storeImage } from './image-storage.mjs';
+import { IMAGE_DIRECTORIES, FOLLOWING_IMAGE_DIRECTORY, MAX_IMAGE_BYTES, repositoryImageStorage, storeImage } from './image-storage.mjs';
 import { getNoteSpace, getSpaceForNote, seriesNameForSpace } from '../data/note-space-config.mjs';
+import { followingEntryAnchor, getFollowingCategory } from '../data/following-config.mjs';
 import { markdownConfig } from '../markdown/config.mjs';
 import { buildEditorTree } from './note-navigation.mjs';
 import { findSiblingFiles } from './file-order.mjs';
+import { validateFollowingSource } from './following-input.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -79,11 +81,15 @@ function toEntryId(relativePath) {
 		.join('/');
 }
 
-function entryUrl(collection, relativePath) {
+function entryUrl(collection, relativePath, data = {}) {
 	const config = COLLECTIONS[collection];
 	const base = config?.routeBase ?? '';
 
-	// following 这类没有单条详情页的 collection，预览直接指向索引页
+	if (collection === 'following' && getFollowingCategory(data.category)) {
+		const anchor = encodeURIComponent(followingEntryAnchor(relativePath)).replaceAll('%2F', '/');
+		return `${base}/${data.category}/#${anchor}`;
+	}
+	// 未分类或损坏的条目仍能从编辑器打开，预览回退到入口。
 	if (config?.singlePage) return `${base}/`;
 
 	const id = toEntryId(relativePath);
@@ -222,7 +228,7 @@ async function git(projectRoot, args) {
 
 async function gitStatus(projectRoot) {
 	const branch = await git(projectRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-	const status = await git(projectRoot, ['status', '--porcelain', '--', CONTENT_SUBDIR, IMAGE_DIRECTORY]);
+	const status = await git(projectRoot, ['status', '--porcelain', '--', CONTENT_SUBDIR, ...IMAGE_DIRECTORIES]);
 
 	const changes = status.stdout
 		.split('\n')
@@ -254,8 +260,10 @@ async function publish(projectRoot, { message, push }) {
 	}
 
 	const paths = [CONTENT_SUBDIR];
-	const imageFiles = await git(projectRoot, ['ls-files', '--', IMAGE_DIRECTORY]);
-	if (imageFiles.stdout.trim() || await fs.access(path.join(projectRoot, IMAGE_DIRECTORY)).then(() => true, () => false)) paths.push(IMAGE_DIRECTORY);
+	for (const directory of IMAGE_DIRECTORIES) {
+		const imageFiles = await git(projectRoot, ['ls-files', '--', directory]);
+		if (imageFiles.stdout.trim() || await fs.access(path.join(projectRoot, directory)).then(() => true, () => false)) paths.push(directory);
+	}
 	const added = await run(['add', '--', ...paths]);
 	if (!added.ok) return { ok: false, steps, status: await gitStatus(projectRoot) };
 
@@ -307,7 +315,8 @@ async function listFiles(projectRoot) {
 				series: typeof data.series === 'string' ? data.series : null,
 				section: typeof data.section === 'string' ? data.section : null,
 				org: typeof data.org === 'string' ? data.org : null,
-				url: entryUrl(collection, relative),
+				category: collection === 'following' ? getFollowingCategory(data.category)?.slug ?? null : undefined,
+				url: entryUrl(collection, relative, data),
 				modified: stats.mtimeMs,
 			});
 		}
@@ -328,7 +337,7 @@ async function readFile(projectRoot, relPath) {
 	}
 
 	const { frontmatter, body } = parseMarkdown(raw);
-	return { path: relative, collection, frontmatter, body, url: entryUrl(collection, relative), ...noteMetadata(collection, relative, frontmatter) };
+	return { path: relative, collection, frontmatter, body, url: entryUrl(collection, relative, frontmatter), ...noteMetadata(collection, relative, frontmatter) };
 }
 
 async function writeFile(projectRoot, payload, { mustBeNew }) {
@@ -363,6 +372,11 @@ async function writeFile(projectRoot, payload, { mustBeNew }) {
 	if (collection === 'notes' && frontmatter.space !== undefined && !getNoteSpace(frontmatter.space)) {
 		throw new HttpError(422, '请选择有效的笔记分类');
 	}
+	if (collection === 'following') {
+		delete frontmatter.kind;
+		try { validateFollowingSource(frontmatter); }
+		catch (error) { throw new HttpError(422, error.message); }
+	}
 
 	for (const field of COLLECTIONS[collection].fields) {
 		if (!field.required) continue;
@@ -375,7 +389,7 @@ async function writeFile(projectRoot, payload, { mustBeNew }) {
 	await fs.mkdir(path.dirname(absolute), { recursive: true });
 	await fs.writeFile(absolute, serializeMarkdown(collection, frontmatter, body), 'utf8');
 
-	return { path: relative, collection, url: entryUrl(collection, relative), order: frontmatter.order ?? null, ...noteMetadata(collection, relative, frontmatter) };
+	return { path: relative, collection, url: entryUrl(collection, relative, frontmatter), order: frontmatter.order ?? null, ...noteMetadata(collection, relative, frontmatter) };
 }
 
 /** Change only order metadata, retaining comments, newline style, and the raw body. */
@@ -488,11 +502,14 @@ async function moveFile(projectRoot, from, to) {
 		.catch(() => false);
 	if (targetExists) throw new HttpError(409, `目标已存在：${target.relative}`);
 
+	const data = source.collection === 'following'
+		? parseMarkdown(await fs.readFile(source.absolute, 'utf8')).frontmatter
+		: {};
 	await fs.mkdir(path.dirname(target.absolute), { recursive: true });
 	await fs.rename(source.absolute, target.absolute);
 	await pruneEmptyDirs(projectRoot, path.dirname(source.absolute));
 
-	return { path: target.relative, url: entryUrl(target.collection, target.relative) };
+	return { path: target.relative, url: entryUrl(target.collection, target.relative, data) };
 }
 
 /* ------------------------------------------------------------ transport */
@@ -528,6 +545,9 @@ export function createEditorApi(projectRoot) {
 
 		try {
 			if (req.method === 'POST' && route === '/images') {
+				const collection = url.searchParams.get('collection') ?? 'notes';
+				if (!['notes', 'following'].includes(collection)) throw new HttpError(400, '图片分类不受支持');
+				const storage = collection === 'following' ? repositoryImageStorage(projectRoot, FOLLOWING_IMAGE_DIRECTORY) : repositoryImageStorage(projectRoot);
 				const chunks = [];
 				let size = 0;
 				for await (const chunk of req) {
@@ -535,7 +555,7 @@ export function createEditorApi(projectRoot) {
 					if (size > MAX_IMAGE_BYTES) throw new HttpError(413, '单张图片不能超过 10 MiB');
 					chunks.push(chunk);
 				}
-				return sendJson(res, 201, await storeImage(projectRoot, Buffer.concat(chunks)));
+				return sendJson(res, 201, await storeImage(projectRoot, Buffer.concat(chunks), storage));
 			}
 			if (req.method === 'GET' && route === '/files') {
 				return sendJson(res, 200, { files: await listFiles(projectRoot) });

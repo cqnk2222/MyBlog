@@ -1,7 +1,7 @@
 ---
 name: 'Lilian Weng'
 url: 'https://lilianweng.github.io/'
-kind: 'blog'
+category: 'research'
 rss: 'https://lilianweng.github.io/index.xml'
 addedDate: '2026-08-24'
 active: true

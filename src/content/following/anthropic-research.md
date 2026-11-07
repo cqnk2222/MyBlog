@@ -1,7 +1,7 @@
 ---
 name: 'Anthropic Research'
 url: 'https://www.anthropic.com/research'
-kind: 'lab'
+category: 'research'
 org: 'Anthropic'
 addedDate: '2026-08-24'
 active: true

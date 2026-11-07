@@ -1,7 +1,7 @@
 ---
 name: 'Eugene Yan'
 url: 'https://eugeneyan.com/'
-kind: 'blog'
+category: 'engineering'
 rss: 'https://eugeneyan.com/rss/'
 addedDate: '2026-08-24'
 active: true

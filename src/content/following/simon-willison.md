@@ -1,7 +1,7 @@
 ---
 name: 'Simon Willison'
 url: 'https://simonwillison.net/'
-kind: 'blog'
+category: 'engineering'
 rss: 'https://simonwillison.net/atom/everything/'
 addedDate: '2026-08-24'
 active: true

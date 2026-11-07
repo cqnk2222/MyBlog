@@ -1,0 +1,79 @@
+/* Following 入口与分类页的共用样式。 */
+.following-page {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.following-main {
+	width: 100%;
+	max-width: var(--max-width-header);
+	margin: 0 auto;
+	padding: 42px 40px 72px;
+	flex: 1;
+}
+
+.following-eyebrow {
+	margin: 0 0 18px;
+	color: var(--following-primary-dark);
+	font: 10px var(--font-mono);
+	letter-spacing: .14em;
+	line-height: 1.8;
+	text-transform: uppercase;
+}
+
+.following-hero h1 {
+	margin: 0;
+	color: var(--following-heading);
+	font-size: clamp(40px, 5.5vw, 60px);
+	font-weight: 600;
+	letter-spacing: -.055em;
+	line-height: 1.15;
+}
+
+.following-intro {
+	max-width: 600px;
+	margin-top: 23px;
+	color: var(--text-secondary);
+	font-size: 16px;
+	line-height: 1.95;
+}
+
+.following-page [data-category="research"] {
+	--category-accent: #306c9b;
+	--category-tint: #f2f7fb;
+	--category-border: #cddfea;
+}
+
+.following-page [data-category="engineering"] {
+	--category-accent: var(--following-primary-dark);
+	--category-tint: var(--following-bg-light);
+	--category-border: var(--following-border);
+}
+
+.following-page [data-category="design"] {
+	--category-accent: #9a5b42;
+	--category-tint: #fbf5f1;
+	--category-border: #ead7cb;
+}
+
+.following-main :is(a, button):focus-visible {
+	outline: 2px solid var(--category-accent, var(--following-primary-dark));
+	outline-offset: 5px;
+}
+
+.following-main [hidden] {
+	display: none !important;
+}
+
+@media (max-width: 640px) {
+	.following-main { padding: 30px 24px 54px; }
+	.following-intro { font-size: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.following-main *, .following-main *::before, .following-main *::after {
+		transition: none !important;
+		animation: none !important;
+	}
+}
